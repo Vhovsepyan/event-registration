@@ -308,3 +308,16 @@
 - Failures diagnosed: None in implementation. The new component test was run against the previous page implementation to confirm it fails (stale checked-in count rendered) before being accepted.
 - Tests/checks: Vitest (12 passed, including the new delayed-response test); Oxlint; TypeScript/Vite production build; Playwright two-context proof and cancellation/re-registration scenario (2 passed) with ports released; Git whitespace check.
 - Self-review: Every acceptance criterion in the task is covered by a test or an unchanged existing test; the fix is confined to the organizer effect and no API or backend behavior changed. No Critical or Important findings remain.
+
+## 2026-09-14T18:34:46+04:00 — Task 0024 started
+
+- Task: P2: Release the SSE route's preliminary database session before streaming
+- Agent/tool: Claude Code (Claude Opus 5) using FastAPI dependencies, SQLAlchemy pooling, pytest/httpx, Ruff, Playwright, and Git
+- Prompt/reference: `docs/prompts/0024-sse-preliminary-session-release.md`, `docs/tasks/0024-sse-preliminary-session-release.md`, and the "Other observations" section of `docs/reviews/2026-09-14-astra6-review.md`
+- Existing work: Task 0023 committed; the stream route ran its 404 pre-check on the request-scoped yield session, which FastAPI keeps open for the whole streaming response
+- Decisions: Give long-lived handlers a session-factory dependency instead of a session so the pre-check session is closed before the response starts; keep the 404 pre-check and per-snapshot short-lived sessions unchanged; override the new dependency in tests so polling still targets the isolated test engine
+- Status: Completed at 2026-09-14T18:36:03+04:00
+- Result: A connected organizer no longer pins a pooled PostgreSQL connection for the stream lifetime; unknown events still return 404 as JSON before any stream bytes.
+- Failures diagnosed: None in implementation. The new pool test was written first and observed one checked-out connection against the previous route, then zero after the change.
+- Tests/checks: Ruff lint/format; backend pytest (72 passed, including the pool-release and stream 404 tests); Playwright two-context SSE proof and cancellation scenario (2 passed) with ports released; Git whitespace check.
+- Self-review: Task 0010's no-lifetime-session criterion now holds for the whole request, the stream and the pre-check use the same configured engine in production and tests, and no polling design, interval, or payload changed. No Critical or Important findings remain; tasks 0023 and 0024 close the review's remaining observations.

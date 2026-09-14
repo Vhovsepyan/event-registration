@@ -6,7 +6,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.common.config import get_settings
-from app.db.session import get_db_session
+from app.db.session import get_db_session, get_session_factory
 from app.organizer.service import EventStats, OrganizerService
 
 router = APIRouter(prefix="/api/events", tags=["organizer"])
@@ -24,13 +24,15 @@ def get_event_stats(
 def stream_event_stats(
     request: Request,
     event_id: uuid.UUID,
-    session: Annotated[Session, Depends(get_db_session)],
+    session_factory: Annotated[sessionmaker[Session], Depends(get_session_factory)],
 ) -> StreamingResponse:
-    service.get_stats(session, event_id)
-    stream_session_factory = sessionmaker(bind=session.get_bind(), expire_on_commit=False)
+    # Verify the event in a session that is closed before the response starts, so no pooled
+    # connection is held for the stream lifetime; every poll opens its own short-lived session.
+    with session_factory() as session:
+        service.get_stats(session, event_id)
     events = service.stats_events(
         event_id=event_id,
-        session_factory=stream_session_factory,
+        session_factory=session_factory,
         is_disconnected=request.is_disconnected,
         poll_interval=get_settings().sse_poll_interval_seconds,
     )

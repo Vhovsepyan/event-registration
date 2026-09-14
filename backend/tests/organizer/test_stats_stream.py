@@ -1,4 +1,5 @@
 import json
+import uuid
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime, timedelta
 
@@ -71,3 +72,33 @@ async def test_stream_endpoint_has_sse_headers(
     assert response.headers["content-type"].startswith("text/event-stream")
     assert response.headers["cache-control"] == "no-cache"
     assert response.text.startswith("event: stats\n")
+
+
+async def test_stream_route_holds_no_pooled_connection_between_polls(
+    client: httpx.AsyncClient, database_engine: Engine, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    event_id = await create_event(client)
+    observed: list[int] = []
+
+    async def observing_events(**kwargs: object) -> AsyncIterator[str]:
+        # Runs after the route has finished its preliminary work and the response has started:
+        # nothing from the request itself may still hold a connection from the shared pool.
+        observed.append(database_engine.pool.checkedout())
+        factory = kwargs["session_factory"]
+        assert isinstance(factory, sessionmaker)
+        assert factory.kw["bind"] is database_engine
+        yield 'event: stats\ndata: {"confirmed":0}\n\n'
+
+    monkeypatch.setattr(service, "stats_events", observing_events)
+
+    response = await client.get(f"/api/events/{event_id}/stats/stream")
+
+    assert response.status_code == 200
+    assert observed == [0]
+
+
+async def test_stream_route_returns_404_before_streaming(client: httpx.AsyncClient) -> None:
+    response = await client.get(f"/api/events/{uuid.uuid4()}/stats/stream")
+
+    assert response.status_code == 404
+    assert response.headers["content-type"].startswith("application/json")

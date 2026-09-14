@@ -1,6 +1,6 @@
 # Task 0024 — P2: Release the SSE route's preliminary database session before streaming
 
-- Status: OPEN
+- Status: DONE (2026-09-14, task 0024 commit)
 - Priority: P2
 - Created: 2026-09-14T18:31:44+04:00
 - Source: [review](../reviews/2026-09-14-astra6-review.md), "Other observations, below P1"
@@ -16,6 +16,12 @@
 3. Polling still uses one short-lived session per snapshot from the same configured engine, including the overridden engine in tests.
 4. Add a PostgreSQL test that proves the pool has no checked-out connection while a stream is open between polls, and a 404 test for the stream route.
 5. Existing SSE, organizer, and browser proofs remain green.
+
+## Resolution
+
+- `app/db/session.py` adds `get_session_factory`, a plain (non-yield) dependency returning the configured `sessionmaker`; tests override it alongside `get_db_session`.
+- `stream_event_stats` takes the factory, runs the 404 pre-check in a `with session_factory() as session:` block that closes before `StreamingResponse` is created, and passes the same factory to `stats_events` for the per-snapshot sessions.
+- `tests/organizer/test_stats_stream.py` adds a test that records `engine.pool.checkedout()` when the stream generator starts (it read 1 before the fix and 0 after) and verifies the generator receives a factory bound to the configured engine, plus a 404 test for the stream route.
 
 ## Out of scope
 

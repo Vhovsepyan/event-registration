@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.db.base import Base
 from app.db.models import Event
-from app.db.session import get_db_session
+from app.db.session import get_db_session, get_session_factory
 from app.main import app
 
 _ = Event
@@ -42,6 +42,7 @@ async def client(database_engine: Engine) -> AsyncIterator[httpx.AsyncClient]:
             yield session
 
     app.dependency_overrides[get_db_session] = override_db_session
+    app.dependency_overrides[get_session_factory] = lambda: session_factory
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as test_client:
         yield test_client

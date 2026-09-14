@@ -83,3 +83,10 @@ Both default and test-profile Compose configurations validate successfully, and 
 - Review reproduction: `docs/reviews/astra6-reproduce.py` now reports 3/3 reschedule notifications, 0 stale reminders after postponement and after cancellation, healthy attempts 1 with 20 terminal failures for the poison batch, and 20 deliveries with 0 duplicates for the slow two-worker batch.
 - Frontend and browser proof: Oxlint passed; Vitest passed all 11 tests; the TypeScript/Vite production build passed; both Playwright scenarios passed (2 total), including the two-context live check-in/SSE proof and cancellation/re-registration, against the migrated development database; ports 8000/5173 were released afterwards.
 - Git proof: whitespace checks passed and each task was committed separately.
+
+## Tasks 0023–0024 review follow-up verification
+
+- Completed: 2026-09-14T18:36:03+04:00
+- Frontend: Vitest 12 passed (new delayed-HTTP-snapshot test, confirmed failing before the fix); Oxlint and production build passed.
+- Backend: Ruff passed; full PostgreSQL suite 72 passed (new pool-release test observed 1 checked-out connection before the fix and 0 after; stream 404 test added).
+- Browser: both Playwright scenarios passed after each task against the live SSE route; ports 8000/5173 released.
