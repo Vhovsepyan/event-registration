@@ -56,3 +56,14 @@ class RegistrationRepository:
             .limit(1)
         )
         return session.scalar(statement)
+
+    def list_active(self, session: Session, event_id: uuid.UUID) -> list[Registration]:
+        statement = (
+            select(Registration)
+            .where(
+                Registration.event_id == event_id,
+                Registration.status.in_(["CONFIRMED", "WAITLISTED"]),
+            )
+            .order_by(Registration.created_at, Registration.id)
+        )
+        return list(session.scalars(statement))

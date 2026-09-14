@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db_session
-from app.event.schemas import EventCreate, EventRead
+from app.event.schemas import EventCreate, EventRead, EventReschedule
 from app.event.service import EventService
 
 router = APIRouter(prefix="/api/events", tags=["events"])
@@ -24,3 +24,12 @@ def get_event(
     event_id: uuid.UUID, session: Annotated[Session, Depends(get_db_session)]
 ) -> EventRead:
     return EventRead.model_validate(service.get(session, event_id))
+
+
+@router.patch("/{event_id}", response_model=EventRead)
+def reschedule_event(
+    event_id: uuid.UUID,
+    data: EventReschedule,
+    session: Annotated[Session, Depends(get_db_session)],
+) -> EventRead:
+    return EventRead.model_validate(service.reschedule(session, event_id, data))

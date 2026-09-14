@@ -36,3 +36,14 @@ class EventRead(BaseModel):
     capacity: int
     created_at: datetime
     updated_at: datetime
+
+
+class EventReschedule(BaseModel):
+    starts_at: AwareDatetime
+
+    @field_validator("starts_at")
+    @classmethod
+    def starts_at_must_be_in_the_future(cls, value: datetime) -> datetime:
+        if value <= datetime.now(UTC):
+            raise ValueError("starts_at must be in the future")
+        return value

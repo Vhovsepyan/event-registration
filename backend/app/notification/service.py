@@ -9,6 +9,7 @@ from app.event.models import Event
 from app.notification.models import Notification, NotificationStatus, NotificationType
 from app.notification.templates import (
     event_reminder_email,
+    event_rescheduled_email,
     registration_confirmed_email,
     waitlist_promoted_email,
 )
@@ -110,6 +111,33 @@ class NotificationService:
                 "starts_at": event.starts_at.isoformat(),
             },
             dedupe_key=f"event-reminder:{event.id}:{registration.id}:{event.starts_at.isoformat()}",
+        )
+
+    def enqueue_event_rescheduled(
+        self,
+        session: Session,
+        event: Event,
+        registration: Registration,
+        *,
+        old_starts_at: datetime,
+    ) -> None:
+        old_value = old_starts_at.isoformat()
+        new_value = event.starts_at.isoformat()
+        content = event_rescheduled_email(event, old_value, new_value)
+        self.enqueue(
+            session,
+            notification_type=NotificationType.EVENT_RESCHEDULED,
+            event_id=event.id,
+            registration_id=registration.id,
+            recipient=registration.email,
+            payload={
+                "subject": content.subject,
+                "body": content.body,
+                "old_starts_at": old_value,
+                "new_starts_at": new_value,
+                "registration_status": registration.status.value,
+            },
+            dedupe_key=f"event-rescheduled:{event.id}:{registration.id}:{new_value}",
         )
 
 

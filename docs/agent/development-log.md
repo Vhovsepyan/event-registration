@@ -168,3 +168,16 @@
 - Failures diagnosed: The reminder content test compared equivalent `Z` and `+00:00` UTC representations; it now compares a normalized ISO representation.
 - Tests/checks: `alembic check` (no drift); Ruff lint/format; pytest (36 passed), including repeat generation and waitlist exclusion; frontend lint, Vitest (2 passed), and build; test-profile Compose validation; Git whitespace checks.
 - Self-review: Eligibility is recalculated from PostgreSQL on every worker poll, no in-memory timer is required, cancelled/waitlisted users are excluded, and the exact schedule participates in dedupe. All task 0013 criteria pass with no remaining Critical or Important findings.
+
+## 2026-09-14T14:45:34+04:00 — Task 0014 started
+
+- Task: Event rescheduling and notifications
+- Agent/tool: OpenAI Codex using FastAPI PATCH, PostgreSQL event locking, SQLAlchemy, transactional outbox, pytest/httpx, Ruff, Docker Compose, and Git
+- Prompt/reference: `docs/IMPLEMENTATION_PLAN.md` reschedule rules and `docs/tasks/0014-event-rescheduling-and-notifications.md`
+- Existing work: Events, active participant state, outbox delivery, and schedule-specific reminders are committed and green
+- Decisions: Restrict PATCH to future `starts_at`; serialize rescheduling with seat operations on the Event row; notify confirmed and waitlisted but not cancelled participants; dedupe against the new schedule
+- Status: Completed at 2026-09-14T14:56:12+04:00
+- Result: Added event rescheduling through a validated PATCH endpoint, serialized the update on the Event row, and atomically queued deterministic reschedule notifications for every confirmed and waitlisted participant. Schedule-specific notification and reminder identities allow a genuinely new event time to produce new messages while a no-op update remains idempotent.
+- Failures diagnosed: The first reschedule test compared equivalent UTC timestamps rendered as `Z` and `+00:00`; expected timestamps are now normalized before comparison.
+- Tests/checks: `alembic check` (no drift); Ruff lint/format; pytest (39 passed), including active-recipient, no-op dedupe, new-reminder-schedule, and invalid-past cases; frontend lint, Vitest (2 passed), and production build; test-profile Compose validation; Git whitespace checks.
+- Self-review: The schedule and all notification intents change in one transaction, cancelled registrations are excluded, both active statuses are included, past dates are rejected, and dedupe includes the new schedule. All task 0014 criteria pass with no remaining Critical or Important findings.

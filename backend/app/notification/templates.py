@@ -44,3 +44,15 @@ def event_reminder_email(event: Event, ticket: Ticket) -> EmailContent:
             "Bring this code for check-in."
         ),
     )
+
+
+def event_rescheduled_email(event: Event, old_starts_at: str, new_starts_at: str) -> EmailContent:
+    return EmailContent(
+        subject=f"New event time: {event.title}",
+        body=(
+            f"The schedule for {event.title} has changed.\n\n"
+            f"Previous time: {old_starts_at}\n"
+            f"New time: {new_starts_at}\n\n"
+            "Please update your plans."
+        ),
+    )
