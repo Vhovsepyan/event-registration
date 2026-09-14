@@ -64,3 +64,16 @@
 - Failures diagnosed: Ruff normalized imports/long generated migration lines. No runtime or concurrency failures remained after implementing the lock discipline.
 - Tests/checks: Waitlist migration downgrade/upgrade; `alembic check` (no drift); Ruff lint/format; pytest (17 passed), including a barrier-forced overlapping last-seat test against PostgreSQL; frontend lint, Vitest (2 passed), and production build; test-profile Compose validation; Git whitespace checks.
 - Self-review: PostgreSQL is the serialization authority; every registration allocation locks the event before identity/capacity/queue reads, waitlist positions are unique per event, and state shape is database-constrained. All task 0005 criteria pass with no remaining Critical or Important findings.
+
+## 2026-09-14T14:22:39+04:00 — Task 0006 started
+
+- Task: Ticket generation and display
+- Agent/tool: OpenAI Codex using Python `secrets`, FastAPI, SQLAlchemy, Alembic, Pydantic, PostgreSQL, pytest/httpx, Ruff, Docker Compose, and Git
+- Prompt/reference: `docs/IMPLEMENTATION_PLAN.md` ticket model/API requirements and `docs/tasks/0006-ticket-generation-and-display.md`
+- Existing work: Capacity-safe confirmed/waitlisted allocation from task 0005 is committed and green
+- Decisions: Use a 60-bit ambiguity-reduced grouped code; create tickets in the allocation transaction only for confirmed registrations; return event and registration context from ticket lookup
+- Status: Completed at 2026-09-14T14:24:48+04:00
+- Result: Added Ticket persistence/migration, 60-bit grouped code generation, atomic ticket issuance for confirmed registrations, optional registration ticket responses, and ticket detail lookup with event/registration context. Waitlisted registrations remain ticketless.
+- Failures diagnosed: Ruff reformatted the generated migration; ticket detail construction was kept explicit so required nested event/status fields are validated rather than inferred from unrelated ORM attributes.
+- Tests/checks: Ticket migration downgrade/upgrade; `alembic check` (no drift); Ruff lint/format; pytest (20 passed) against PostgreSQL, including issue/retrieve/waitlist/idempotency cases; frontend lint, Vitest (2 passed), and build; test-profile Compose validation; Git whitespace checks.
+- Self-review: Codes use `secrets` with 60 bits of entropy and exclude ambiguous characters, uniqueness is database-enforced, repeated registration returns the same ticket, and issuance shares the capacity transaction. All task 0006 criteria pass with no remaining Critical or Important findings.

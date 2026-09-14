@@ -8,6 +8,7 @@ from app.event.repository import EventRepository
 from app.registration.models import Registration, RegistrationStatus
 from app.registration.repository import RegistrationRepository
 from app.registration.schemas import RegistrationCreate
+from app.ticket.service import TicketService
 
 
 def normalize_email(email: str) -> str:
@@ -18,6 +19,7 @@ class RegistrationService:
     def __init__(self, repository: RegistrationRepository | None = None) -> None:
         self.repository = repository or RegistrationRepository()
         self.event_repository = EventRepository()
+        self.ticket_service = TicketService()
 
     def register(
         self, session: Session, event_id: uuid.UUID, data: RegistrationCreate
@@ -51,6 +53,9 @@ class RegistrationService:
                 )
                 self.repository.add(session, registration)
                 session.flush()
+                if has_capacity:
+                    registration.ticket = self.ticket_service.issue(session, registration.id)
+                    session.flush()
 
         session.refresh(registration)
         return registration

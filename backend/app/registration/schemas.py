@@ -4,6 +4,7 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, EmailStr
 
 from app.registration.models import RegistrationStatus
+from app.ticket.schemas import TicketRead
 
 
 class RegistrationCreate(BaseModel):
@@ -21,3 +22,4 @@ class RegistrationRead(BaseModel):
     created_at: datetime
     confirmed_at: datetime | None
     cancelled_at: datetime | None
+    ticket: TicketRead | None

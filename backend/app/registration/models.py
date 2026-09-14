@@ -1,6 +1,9 @@
+from __future__ import annotations
+
 import uuid
 from datetime import datetime
 from enum import StrEnum
+from typing import TYPE_CHECKING
 
 from sqlalchemy import (
     BigInteger,
@@ -13,9 +16,13 @@ from sqlalchemy import (
     UniqueConstraint,
     func,
 )
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+
+if TYPE_CHECKING:
+    from app.event.models import Event
+    from app.ticket.models import Ticket
 
 
 class RegistrationStatus(StrEnum):
@@ -55,3 +62,7 @@ class Registration(Base):
     )
     confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    event: Mapped[Event] = relationship(lazy="joined")
+    ticket: Mapped[Ticket | None] = relationship(
+        back_populates="registration", uselist=False, lazy="selectin"
+    )

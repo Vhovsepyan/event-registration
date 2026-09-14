@@ -5,6 +5,7 @@ from app.common.config import get_settings
 from app.common.errors import ResourceNotFoundError
 from app.event.routes import router as event_router
 from app.registration.routes import router as registration_router
+from app.ticket.routes import router as ticket_router
 
 
 def create_app() -> FastAPI:
@@ -20,6 +21,7 @@ def create_app() -> FastAPI:
 
     app.include_router(event_router)
     app.include_router(registration_router)
+    app.include_router(ticket_router)
 
     return app
 
