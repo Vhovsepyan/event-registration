@@ -51,3 +51,16 @@
 - Failures diagnosed: Migration formatting required Ruff normalization; the PostgreSQL enum migration was made explicitly reversible with a non-auto-creating dialect enum so repeated upgrade/downgrade does not collide with its type.
 - Tests/checks: Registration migration downgrade/upgrade; `alembic check` (no drift); Ruff lint/format; pytest (14 passed) against isolated PostgreSQL; frontend lint, Vitest (2 passed), and production build; test-profile Compose validation; Git whitespace checks.
 - Self-review: The event/email uniqueness invariant is protected and tested in PostgreSQL, normalization is case-insensitive and trims input, and API repeats return the original record. Concurrency races are explicitly deferred to task 0005. All task 0004 criteria pass with no remaining Critical or Important findings.
+
+## 2026-09-14T14:20:11+04:00 — Task 0005 started
+
+- Task: Capacity concurrency and waitlist
+- Agent/tool: OpenAI Codex using PostgreSQL row locks, SQLAlchemy transactions, FastAPI/httpx, pytest concurrent tasks/thread synchronization, Alembic, Ruff, Docker Compose, and Git
+- Prompt/reference: `docs/IMPLEMENTATION_PLAN.md` concurrency strategy and `docs/tasks/0005-capacity-concurrency-and-waitlist.md`
+- Existing work: Registration identity and confirmed-state behavior from task 0004 are committed and green
+- Decisions: Serialize all allocation decisions on the Event row; derive confirmed count from registrations; allocate waitlist order under the lock; enforce state shape and unique queue positions in PostgreSQL
+- Status: Completed at 2026-09-14T14:21:56+04:00
+- Result: Registration allocation now locks the event row, derives confirmed occupancy from PostgreSQL, confirms within capacity, assigns monotonic FIFO waitlist positions when full, and preserves duplicate-email idempotency inside one transaction. Added state/queue constraints, index, reversible migration, and forced-overlap concurrency coverage.
+- Failures diagnosed: Ruff normalized imports/long generated migration lines. No runtime or concurrency failures remained after implementing the lock discipline.
+- Tests/checks: Waitlist migration downgrade/upgrade; `alembic check` (no drift); Ruff lint/format; pytest (17 passed), including a barrier-forced overlapping last-seat test against PostgreSQL; frontend lint, Vitest (2 passed), and production build; test-profile Compose validation; Git whitespace checks.
+- Self-review: PostgreSQL is the serialization authority; every registration allocation locks the event before identity/capacity/queue reads, waitlist positions are unique per event, and state shape is database-constrained. All task 0005 criteria pass with no remaining Critical or Important findings.

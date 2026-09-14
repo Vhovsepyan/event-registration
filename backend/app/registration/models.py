@@ -2,7 +2,17 @@ import uuid
 from datetime import datetime
 from enum import StrEnum
 
-from sqlalchemy import BigInteger, DateTime, Enum, ForeignKey, String, UniqueConstraint, func
+from sqlalchemy import (
+    BigInteger,
+    CheckConstraint,
+    DateTime,
+    Enum,
+    ForeignKey,
+    Index,
+    String,
+    UniqueConstraint,
+    func,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -18,6 +28,16 @@ class Registration(Base):
     __tablename__ = "registrations"
     __table_args__ = (
         UniqueConstraint("event_id", "normalized_email", name="uq_registrations_event_email"),
+        UniqueConstraint(
+            "event_id", "waitlist_order", name="uq_registrations_event_waitlist_order"
+        ),
+        CheckConstraint(
+            "(status = 'WAITLISTED' AND waitlist_order IS NOT NULL AND confirmed_at IS NULL) "
+            "OR (status = 'CONFIRMED' AND waitlist_order IS NULL AND confirmed_at IS NOT NULL) "
+            "OR status = 'CANCELLED'",
+            name="ck_registrations_status_shape",
+        ),
+        Index("ix_registrations_event_status", "event_id", "status"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
