@@ -38,3 +38,16 @@
 - Failures diagnosed: Ruff corrected generated/import and Python 3.13 modernization issues. Initial API tests passed, but self-review found that destructive schema resets defaulted to the development database; a profile-gated ephemeral `postgres-test` service and dedicated test URL now isolate all integration tests.
 - Tests/checks: Migration downgrade/upgrade from base; `alembic check` (no drift); Ruff lint/format; pytest (9 passed) against PostgreSQL 17; frontend lint (green), Vitest (2 passed), and production build; default/test Docker Compose validation; OpenAPI route inspection; Git whitespace checks.
 - Self-review: Event validation exists at the API boundary and title/capacity invariants are also PostgreSQL constraints with direct tests. Test data cannot affect the development database. All task 0003 acceptance criteria pass with no remaining Critical or Important findings.
+
+## 2026-09-14T14:17:09+04:00 — Task 0004 started
+
+- Task: Participant registration
+- Agent/tool: OpenAI Codex using FastAPI, SQLAlchemy, Alembic, Pydantic EmailStr, pytest/httpx, PostgreSQL, Ruff, Docker Compose, and Git
+- Prompt/reference: `docs/IMPLEMENTATION_PLAN.md`, the autonomous continuation instruction, and `docs/tasks/0004-participant-registration.md`
+- Existing work: Task 0003 event APIs and isolated PostgreSQL test infrastructure are committed and green
+- Decisions: Establish registration identity/idempotency and confirmed state now; defer capacity locking/waitlisting, tickets, and notifications to tasks 0005, 0006, and 0011/0012
+- Status: Completed at 2026-09-14T14:19:26+04:00
+- Result: Added the registration status/data model and migration, normalized-email identity, registration repository/service/API, EmailStr validation, confirmed-state creation, idempotent repeat behavior, and PostgreSQL integration/constraint tests.
+- Failures diagnosed: Migration formatting required Ruff normalization; the PostgreSQL enum migration was made explicitly reversible with a non-auto-creating dialect enum so repeated upgrade/downgrade does not collide with its type.
+- Tests/checks: Registration migration downgrade/upgrade; `alembic check` (no drift); Ruff lint/format; pytest (14 passed) against isolated PostgreSQL; frontend lint, Vitest (2 passed), and production build; test-profile Compose validation; Git whitespace checks.
+- Self-review: The event/email uniqueness invariant is protected and tested in PostgreSQL, normalization is case-insensitive and trims input, and API repeats return the original record. Concurrency races are explicitly deferred to task 0005. All task 0004 criteria pass with no remaining Critical or Important findings.

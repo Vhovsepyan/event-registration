@@ -4,6 +4,7 @@ from fastapi.responses import JSONResponse
 from app.common.config import get_settings
 from app.common.errors import ResourceNotFoundError
 from app.event.routes import router as event_router
+from app.registration.routes import router as registration_router
 
 
 def create_app() -> FastAPI:
@@ -18,6 +19,7 @@ def create_app() -> FastAPI:
         return {"status": "ok"}
 
     app.include_router(event_router)
+    app.include_router(registration_router)
 
     return app
 
