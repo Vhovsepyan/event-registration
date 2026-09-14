@@ -1,0 +1,89 @@
+.app-shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-rows: auto 1fr;
+}
+
+.site-header {
+  width: min(100% - 2rem, 70rem);
+  margin-inline: auto;
+  padding-block: 1.25rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.brand {
+  color: var(--color-ink);
+  font-size: 1.125rem;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+  text-decoration: none;
+}
+
+.brand:focus-visible,
+.text-link:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 4px;
+  border-radius: 0.125rem;
+}
+
+.page-content {
+  width: min(100% - 2rem, 70rem);
+  margin-inline: auto;
+  display: grid;
+  place-items: center;
+  padding-block: 4rem;
+}
+
+.status-card {
+  width: min(100%, 42rem);
+  padding: clamp(2rem, 7vw, 5rem);
+  border: 1px solid var(--color-border);
+  border-radius: 1.5rem;
+  background: var(--color-surface);
+  box-shadow: 0 1.5rem 4rem rgb(39 46 41 / 8%);
+}
+
+.eyebrow {
+  margin: 0 0 0.75rem;
+  color: var(--color-accent);
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.status-card h1 {
+  max-width: 14ch;
+  margin: 0;
+  color: var(--color-ink);
+  font-size: clamp(2.25rem, 7vw, 4.75rem);
+  line-height: 0.98;
+  letter-spacing: -0.055em;
+}
+
+.status-card__description {
+  max-width: 52ch;
+  margin: 1.5rem 0 0;
+  color: var(--color-muted);
+  font-size: 1.05rem;
+  line-height: 1.7;
+}
+
+.text-link {
+  display: inline-block;
+  margin-top: 1.5rem;
+  color: var(--color-accent-strong);
+  font-weight: 700;
+  text-underline-offset: 0.25em;
+}
+
+@media (max-width: 32rem) {
+  .page-content {
+    align-items: start;
+    padding-block: 2rem;
+  }
+
+  .status-card {
+    border-radius: 1rem;
+  }
+}

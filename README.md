@@ -5,7 +5,7 @@ Repository foundation for the event registration project. The backend and fronte
 ## Structure
 
 - `backend/` — Python/FastAPI backend managed with `uv`
-- `frontend/` — reserved for the frontend
+- `frontend/` — React/TypeScript frontend built with Vite
 - `docs/` — project documentation
 
 ## Backend
@@ -21,6 +21,19 @@ uv run uvicorn app.main:app --reload
 ```
 
 The API is available at `http://localhost:8000`; its infrastructure health endpoint is `GET /health`.
+
+## Frontend
+
+The frontend foundation uses React Router and includes lint, test, and production-build tooling.
+
+```powershell
+cd frontend
+npm install
+npm run lint
+npm test -- --run
+npm run build
+npm run dev
+```
 
 ## Local infrastructure
 
