@@ -738,6 +738,11 @@ Implement incrementally.
 0015 Frontend integration and UX completion
 0016 Concurrency and multi-client proof
 0017 Documentation, decision log, demo and final verification
+0018 — Post-review fixes
+0019 — P1: Notify participants on every actual reschedule
+0020 — P1: Suppress queued reminders after cancellation or rescheduling
+0021 — P1: Prevent failing messages from starving the outbox
+0022 — P1: Keep live worker claims from expiring during a batch
 
 Each task must:
 
