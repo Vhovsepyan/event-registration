@@ -2,7 +2,7 @@ import { defineConfig } from '@playwright/test'
 
 const databaseUrl =
   process.env.DATABASE_URL ??
-  'postgresql+psycopg://event_registration:event_registration@localhost:5433/event_registration'
+  'postgresql+psycopg://event_registration:event_registration@localhost:5432/event_registration'
 
 export default defineConfig({
   testDir: './e2e',

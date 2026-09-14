@@ -5,14 +5,14 @@
 Start PostgreSQL and migrate the development database before running Playwright:
 
 ```powershell
-$env:POSTGRES_PORT = "5433" # omit when 5432 is free
 docker compose up -d postgres
 cd backend
-$env:DATABASE_URL = "postgresql+psycopg://event_registration:event_registration@localhost:5433/event_registration"
 uv run alembic upgrade head
 cd ../frontend
 npm run test:e2e
 ```
+
+Those commands use the standard PostgreSQL port 5432. If that port is occupied, start Compose with `$env:POSTGRES_PORT = "5433"` and set `$env:DATABASE_URL = "postgresql+psycopg://event_registration:event_registration@localhost:5433/event_registration"` in the shell that runs both Alembic and Playwright.
 
 Playwright starts the API and Vite servers, creates a unique event, and opens two isolated browser contexts. Browser A stays on the organizer dashboard. Browser B registers, receives a real ticket, and checks it in. The assertion passes only when browser A's checked-in value changes from 0 to 1 through SSE without a reload.
 
