@@ -1,8 +1,10 @@
-import { render, screen } from '@testing-library/react'
+import { cleanup, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 
 import App from './App'
+
+afterEach(cleanup)
 
 function renderAt(path: string) {
   return render(
@@ -13,10 +15,10 @@ function renderAt(path: string) {
 }
 
 describe('application routing', () => {
-  it('renders the frontend foundation at the root route', () => {
+  it('renders event creation at the root route', () => {
     renderAt('/')
 
-    expect(screen.getByRole('heading', { name: 'Ready for event registration' })).toBeVisible()
+    expect(screen.getByRole('heading', { name: 'Create an event' })).toBeVisible()
   })
 
   it('renders a not-found page for unknown routes', () => {

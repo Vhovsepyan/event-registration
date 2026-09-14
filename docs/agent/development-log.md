@@ -181,3 +181,16 @@
 - Failures diagnosed: The first reschedule test compared equivalent UTC timestamps rendered as `Z` and `+00:00`; expected timestamps are now normalized before comparison.
 - Tests/checks: `alembic check` (no drift); Ruff lint/format; pytest (39 passed), including active-recipient, no-op dedupe, new-reminder-schedule, and invalid-past cases; frontend lint, Vitest (2 passed), and production build; test-profile Compose validation; Git whitespace checks.
 - Self-review: The schedule and all notification intents change in one transaction, cancelled registrations are excluded, both active statuses are included, past dates are rejected, and dedupe includes the new schedule. All task 0014 criteria pass with no remaining Critical or Important findings.
+
+## 2026-09-14T14:57:56+04:00 — Task 0015 started
+
+- Task: Frontend integration and UX completion
+- Agent/tool: OpenAI Codex using React, TypeScript, React Router, native EventSource, Testing Library/Vitest, FastAPI CORS, Oxlint, Vite, and Git
+- Prompt/reference: `docs/IMPLEMENTATION_PLAN.md` frontend/API/testing requirements and `docs/tasks/0015-frontend-integration-and-ux-completion.md`
+- Existing work: The backend product APIs through task 0014 and the neutral React/Vite foundation are committed and green
+- Decisions: Use route-local React state and a small typed fetch client; load an initial organizer snapshot before subscribing to native SSE; permit only configured local frontend origins; defer multi-browser automation to task 0016
+- Status: Completed at 2026-09-14T15:09:36+04:00
+- Result: Replaced the frontend shell with responsive event creation, participant registration, ticket, staff check-in, and organizer dashboard routes; added typed HTTP integration, native SSE updates, organizer rescheduling, accessible loading/error/result states, configured CORS, and focused UI tests.
+- Failures diagnosed: Parameterized check-in tests initially retained prior rendered trees because Vitest globals did not provide Testing Library's automatic cleanup hook; explicit cleanup fixed isolation. The first backend verification attempt was sandboxed from uv's user cache and was rerun with the required permission. Self-review also found the organizer had no way to invoke the completed reschedule API and the frontend README still described integration as future work; both were corrected.
+- Tests/checks: Ruff lint/format; `alembic check` (no drift); backend pytest (40 passed); Oxlint; Vitest (7 passed, including confirmed registration, all check-in outcomes, and live statistics); TypeScript/Vite production build; test-profile Compose validation; Git whitespace checks.
+- Self-review: Every required screen is routed and network-backed, the dashboard loads an authoritative initial snapshot and subscribes with native EventSource, configured CORS is narrowly scoped, responsive layouts retain labelled inputs and visible focus states, and no domain behavior was duplicated in the client. All task 0015 criteria pass with no remaining Critical or Important findings.
