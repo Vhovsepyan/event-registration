@@ -105,8 +105,8 @@ def stale_reminder(cancel=False):
         mailer = RecordingMailer()
         NotificationWorker(factory, mailer, claim_timeout=60).process_once()
         old_reminders = [message for message in mailer.messages if "Reminder:" in message[1]]
-        assert len(old_reminders) == 1
-        assert event.starts_at.isoformat() in old_reminders[0][2]
+        # Task 0020: the obsolete reminder is suppressed instead of delivered.
+        assert old_reminders == []
         return {"change": "cancelled" if cancel else "postponed_7_days", "stale_reminders_delivered": len(old_reminders)}
 
 

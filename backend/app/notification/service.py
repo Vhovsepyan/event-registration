@@ -1,7 +1,7 @@
 import uuid
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
@@ -28,6 +28,7 @@ class NotificationService:
         recipient: str,
         payload: dict[str, object],
         dedupe_key: str,
+        schedule_revision: int | None = None,
     ) -> None:
         statement = (
             insert(Notification)
@@ -39,6 +40,7 @@ class NotificationService:
                 recipient=recipient,
                 payload=payload,
                 dedupe_key=dedupe_key,
+                schedule_revision=schedule_revision,
                 status=NotificationStatus.PENDING,
                 attempts=0,
             )
@@ -115,6 +117,7 @@ class NotificationService:
                 f"event-reminder:{event.id}:{registration.id}:"
                 f"{event.starts_at.isoformat()}:r{event.schedule_revision}"
             ),
+            schedule_revision=event.schedule_revision,
         )
 
     def enqueue_event_rescheduled(
@@ -145,7 +148,42 @@ class NotificationService:
             dedupe_key=(
                 f"event-rescheduled:{event.id}:{registration.id}:r{event.schedule_revision}"
             ),
+            schedule_revision=event.schedule_revision,
         )
+
+    def suppress_pending_reminders(
+        self,
+        session: Session,
+        *,
+        reason: str,
+        event_id: uuid.UUID | None = None,
+        registration_id: uuid.UUID | None = None,
+    ) -> int:
+        """Retire unsent reminders whose intent no longer applies.
+
+        Only PENDING rows are touched: a PROCESSING row is owned by a worker that already
+        verified it and is handing it to SMTP, which cannot be recalled.
+        """
+        if event_id is None and registration_id is None:
+            raise ValueError("suppression requires an event or registration scope")
+        statement = (
+            update(Notification)
+            .where(
+                Notification.type == NotificationType.EVENT_REMINDER,
+                Notification.status == NotificationStatus.PENDING,
+            )
+            .values(
+                status=NotificationStatus.SUPPRESSED,
+                suppressed_at=datetime.now(UTC),
+                suppression_reason=reason,
+                claimed_at=None,
+            )
+        )
+        if event_id is not None:
+            statement = statement.where(Notification.event_id == event_id)
+        if registration_id is not None:
+            statement = statement.where(Notification.registration_id == registration_id)
+        return session.execute(statement).rowcount
 
 
 class ReminderService:
@@ -157,13 +195,26 @@ class ReminderService:
     ) -> int:
         current_time = now or datetime.now(UTC)
         due_before = current_time + timedelta(hours=lead_hours)
+        # Share-lock the due Event rows first. Registration, cancellation, promotion, and
+        # rescheduling all take the Event row FOR UPDATE, so this statement waits for any
+        # in-flight seat or schedule change to commit and re-reads the row's new version,
+        # and those operations wait for this generation to commit before they suppress.
+        due_events = list(
+            session.scalars(
+                select(Event)
+                .where(Event.starts_at > current_time, Event.starts_at <= due_before)
+                .order_by(Event.id)
+                .with_for_update(read=True)
+            )
+        )
+        if not due_events:
+            return 0
         statement = (
             select(Event, Registration, Ticket)
             .join(Registration, Registration.event_id == Event.id)
             .join(Ticket, Ticket.registration_id == Registration.id)
             .where(
-                Event.starts_at > current_time,
-                Event.starts_at <= due_before,
+                Event.id.in_([event.id for event in due_events]),
                 Registration.status == RegistrationStatus.CONFIRMED,
                 Ticket.invalidated_at.is_(None),
             )

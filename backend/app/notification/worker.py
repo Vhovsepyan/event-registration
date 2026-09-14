@@ -11,8 +11,11 @@ from sqlalchemy.orm import Session, sessionmaker
 from app.common.config import Settings, get_settings
 from app.db import models as database_models
 from app.db.session import SessionLocal
-from app.notification.models import Notification, NotificationStatus
+from app.event.models import Event
+from app.notification.models import Notification, NotificationStatus, NotificationType
 from app.notification.service import ReminderService
+from app.registration.models import Registration, RegistrationStatus
+from app.ticket.models import Ticket
 
 _ = database_models
 
@@ -89,13 +92,42 @@ class NotificationWorker:
                 .limit(batch_size)
                 .with_for_update(skip_locked=True)
             )
-            notifications = list(session.scalars(statement))
             now = datetime.now(UTC)
-            for notification in notifications:
+            claimed: list[Notification] = []
+            for notification in session.scalars(statement):
+                obsolete = self._obsolete_reason(session, notification)
+                if obsolete is not None:
+                    notification.status = NotificationStatus.SUPPRESSED
+                    notification.suppressed_at = now
+                    notification.suppression_reason = obsolete
+                    notification.claimed_at = None
+                    continue
                 notification.status = NotificationStatus.PROCESSING
                 notification.claimed_at = now
                 notification.attempts += 1
-            return notifications
+                claimed.append(notification)
+            return claimed
+
+    def _obsolete_reason(self, session: Session, notification: Notification) -> str | None:
+        """Re-check reminder intent against current state immediately before delivery.
+
+        Business transactions suppress PENDING reminders when they cancel a registration or
+        move an event, and reminder generation share-locks the Event row, so this is the last
+        gate against intent that was generated or resurrected concurrently. A change that
+        commits after this check, while SMTP is accepting the message, cannot be recalled.
+        """
+        if notification.type != NotificationType.EVENT_REMINDER:
+            return None
+        event = session.get(Event, notification.event_id)
+        if event is None or event.schedule_revision != notification.schedule_revision:
+            return "event schedule changed before delivery"
+        registration = session.get(Registration, notification.registration_id)
+        if registration is None or registration.status != RegistrationStatus.CONFIRMED:
+            return "registration no longer confirmed before delivery"
+        ticket = session.scalar(select(Ticket).where(Ticket.registration_id == registration.id))
+        if ticket is None or ticket.invalidated_at is not None:
+            return "ticket invalidated before delivery"
+        return None
 
     def _mark_sent(self, notification_id: uuid.UUID) -> None:
         with self.session_factory.begin() as session:

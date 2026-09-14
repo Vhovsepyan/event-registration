@@ -15,6 +15,7 @@ PostgreSQL event-row locks serialize registration, cancellation, promotion, and 
 - Authentication and authorization are intentionally not implemented. Organizer, rescheduling, and staff check-in routes must not be exposed publicly as-is; participant cancellation also relies on possession of event and registration identifiers.
 - Participant state is held in the current browser flow. There is no authenticated participant account or recovery/list endpoint after a page refresh.
 - SMTP delivery is at-least-once at the transport boundary. If the worker crashes after SMTP accepts a message but before the outbox row is marked `SENT`, the stale claim is retried and the recipient can receive a duplicate.
+- Queued reminders are suppressed when a participant cancels or the event is rescheduled, and re-verified when the worker claims them. A cancellation or reschedule that commits after that verification and before SMTP accepts the message cannot recall it (see `docs/decisions/0020-reminder-suppression.md`).
 - Mailpit and the included configuration are for local development, not production deployment.
 - The API has no rate limiting or abuse controls.
 - After re-registration history exists, downgrading migration `20260914_0007` requires resolving duplicate historical event/email rows before the former lifetime-unique constraint can be restored; the upgrade path is non-destructive.

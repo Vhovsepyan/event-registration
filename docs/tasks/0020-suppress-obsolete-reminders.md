@@ -2,7 +2,7 @@ ChatGPT Astra 6 review
 
 # Task 0020 — P1: Suppress queued reminders after cancellation or rescheduling
 
-- Status: OPEN
+- Status: DONE (2026-09-14, task 0020 commit)
 - Priority: P1
 - Created: 2026-09-14T17:27:36+04:00
 - Reviewed commit: `75581e6`
@@ -23,6 +23,14 @@ Cases: `stale_reminder_after_reschedule` and `stale_reminder_after_cancel` each 
 3. Coordinate generation/invalidation so an in-flight generator cannot resurrect obsolete intent after cancellation or rescheduling commits; define the remaining in-flight SMTP boundary explicitly.
 4. A postponed event gets its current reminder at the new due window, once per documented schedule identity.
 5. Add PostgreSQL worker tests for queued-then-cancelled, queued-then-postponed, re-registration, and overlapping generation/rescheduling; preserve asynchronous SMTP.
+
+## Resolution
+
+- Migration `20260914_0009` adds `notification_outbox.schedule_revision`, `suppressed_at`, `suppression_reason`, and the terminal `SUPPRESSED` status, and back-fills revisions for existing rows (a reminder whose stored time no longer matches its event is tagged `-1`).
+- `RegistrationService.cancel` and `EventService.reschedule` suppress `PENDING` reminders in their own transactions (`registration cancelled`, `event rescheduled to revision N`).
+- `ReminderService.generate_due` share-locks due Event rows before selecting recipients, so it serializes with every `FOR UPDATE` seat/schedule change.
+- `NotificationWorker._claim` re-verifies each claimed reminder (event revision, registration `CONFIRMED`, ticket valid) inside the claim transaction and suppresses obsolete rows with a `before delivery` reason. `PROCESSING` rows are the explicit in-flight boundary; see decision 0020.
+- Tests in `backend/tests/notification/test_reminder_lifecycle.py`: queued-then-cancelled, queued-then-postponed with one reminder at the new window, re-registration, dispatch-time suppression of resurrected intent, and forced overlap of generation with rescheduling in both lock orders.
 
 ## Verification
 

@@ -85,6 +85,9 @@ class RegistrationService:
                 registration.cancelled_at = now
                 if registration.ticket is not None:
                     registration.ticket.invalidated_at = now
+                self.notification_service.suppress_pending_reminders(
+                    session, registration_id=registration.id, reason="registration cancelled"
+                )
 
                 if was_confirmed:
                     promoted = self.repository.first_waitlisted(session, event_id)

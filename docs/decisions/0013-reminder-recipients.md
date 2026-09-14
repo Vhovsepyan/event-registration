@@ -9,4 +9,4 @@ Send approximately 24-hour reminders only to currently confirmed participants wi
 
 ## Consequences
 
-Promotion into a confirmed state makes a participant eligible on the next worker poll. Cancellation/invalidation removes eligibility. Schedule time is part of the dedupe key so task 0014 can create a new reminder after rescheduling.
+Promotion into a confirmed state makes a participant eligible on the next worker poll. Cancellation/invalidation removes eligibility, and since task 0020 it also suppresses an already queued reminder. Schedule time and revision are part of the dedupe key so rescheduling creates a new reminder; see decisions 0019 and 0020.

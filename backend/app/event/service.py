@@ -39,6 +39,11 @@ class EventService:
             if old_starts_at != data.starts_at:
                 event.starts_at = data.starts_at
                 event.schedule_revision += 1
+                self.notification_service.suppress_pending_reminders(
+                    session,
+                    event_id=event_id,
+                    reason=f"event rescheduled to revision {event.schedule_revision}",
+                )
                 participants = self.registration_repository.list_active(session, event_id)
                 for registration in participants:
                     self.notification_service.enqueue_event_rescheduled(
