@@ -73,10 +73,10 @@ export function OrganizerPage() {
         </span>
       </div>
       {stats ? <div className="stat-grid" aria-label="Event statistics">
-        <article><strong>{stats.capacity}</strong><span>Capacity</span></article>
-        <article><strong>{stats.confirmed}</strong><span>Confirmed</span></article>
-        <article><strong>{stats.waitlisted}</strong><span>Waiting list</span></article>
-        <article><strong>{stats.checked_in}</strong><span>Checked in</span></article>
+        <article aria-label={`Capacity: ${stats.capacity}`}><strong>{stats.capacity}</strong><span>Capacity</span></article>
+        <article aria-label={`Confirmed: ${stats.confirmed}`}><strong>{stats.confirmed}</strong><span>Confirmed</span></article>
+        <article aria-label={`Waiting list: ${stats.waitlisted}`}><strong>{stats.waitlisted}</strong><span>Waiting list</span></article>
+        <article aria-label={`Checked in: ${stats.checked_in}`}><strong>{stats.checked_in}</strong><span>Checked in</span></article>
       </div> : !error && <p className="loading" role="status">Loading statistics…</p>}
       <div className="dashboard__links">
         <Link className="button button--secondary" to={`/events/${eventId}`}>Participant page</Link>
