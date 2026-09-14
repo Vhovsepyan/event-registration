@@ -7,7 +7,7 @@ from app.common.errors import ResourceNotFoundError
 from app.event.schemas import EventRead
 from app.ticket.models import Ticket
 from app.ticket.repository import TicketRepository
-from app.ticket.schemas import TicketDetails, TicketRead
+from app.ticket.schemas import CheckInRead, CheckInResult, TicketDetails, TicketRead
 
 TICKET_ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"
 
@@ -36,3 +36,22 @@ class TicketService:
             event=EventRead.model_validate(ticket.registration.event),
             registration_status=ticket.registration.status,
         )
+
+    def check_in(self, session: Session, code: str) -> CheckInRead:
+        normalized_code = code.strip().upper()
+        with session.begin():
+            ticket = self.repository.check_in(session, normalized_code)
+            if ticket is not None:
+                return CheckInRead(result=CheckInResult.SUCCESS, checked_in_at=ticket.checked_in_at)
+
+            existing = self.repository.get_by_code(session, normalized_code)
+            if (
+                existing is not None
+                and existing.invalidated_at is None
+                and existing.checked_in_at is not None
+            ):
+                return CheckInRead(
+                    result=CheckInResult.ALREADY_CHECKED_IN,
+                    checked_in_at=existing.checked_in_at,
+                )
+            return CheckInRead(result=CheckInResult.INVALID_TICKET)

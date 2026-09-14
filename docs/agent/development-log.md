@@ -90,3 +90,16 @@
 - Failures diagnosed: Ruff identified unused test bindings and normalized formatting; these were corrected before final verification.
 - Tests/checks: Waitlist-history migration downgrade/upgrade; `alembic check` (no drift); Ruff lint/format; pytest (23 passed) against PostgreSQL; frontend lint, Vitest (2 passed), and build; test-profile Compose validation; Git whitespace checks.
 - Self-review: New registration and cancellation now share the Event serialization lock, cancellation/promotion/ticket changes share one transaction, original tickets invalidate, FIFO order is stable, and repeat cancellation cannot promote twice. Promotion outbox creation remains explicitly queued for task 0011. All task 0007 criteria pass with no remaining Critical or Important findings.
+
+## 2026-09-14T14:28:25+04:00 — Task 0008 started
+
+- Task: Atomic check-in
+- Agent/tool: OpenAI Codex using SQLAlchemy Core update/returning, PostgreSQL, FastAPI, pytest/httpx concurrent requests, Ruff, Docker Compose, and Git
+- Prompt/reference: `docs/IMPLEMENTATION_PLAN.md` atomic check-in rules and `docs/tasks/0008-atomic-check-in.md`
+- Existing work: Active/inactivated ticket lifecycle from tasks 0006/0007 is committed and green
+- Decisions: Make success depend only on one conditional database update; use a follow-up read solely to classify a failed update as already-used versus invalid
+- Status: Completed at 2026-09-14T14:30:03+04:00
+- Result: Added the check-in API and typed outcomes backed by one conditional PostgreSQL update/returning statement, normalized manual codes, repeat/invalid classification, and sequential plus forced-overlap integration tests.
+- Failures diagnosed: Ruff normalized formatting. Self-review found that a previously checked-in ticket cancelled later could be misclassified as already checked in; invalidation now takes precedence and a regression test covers it.
+- Tests/checks: `alembic check` (no drift); Ruff lint/format; pytest (27 passed), including overlapping same-ticket requests against PostgreSQL; frontend lint, Vitest (2 passed), and build; test-profile Compose validation; Git whitespace checks.
+- Self-review: Success depends solely on the atomic conditional update, concurrent losers observe the committed timestamp and return already checked in, and unknown/invalidated tickets remain invalid. All task 0008 criteria pass with no remaining Critical or Important findings.

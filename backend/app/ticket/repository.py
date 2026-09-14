@@ -1,4 +1,4 @@
-from sqlalchemy import select
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session, joinedload
 
 from app.registration.models import Registration
@@ -14,5 +14,18 @@ class TicketRepository:
             select(Ticket)
             .where(Ticket.code == code)
             .options(joinedload(Ticket.registration).joinedload(Registration.event))
+        )
+        return session.scalar(statement)
+
+    def check_in(self, session: Session, code: str) -> Ticket | None:
+        statement = (
+            update(Ticket)
+            .where(
+                Ticket.code == code,
+                Ticket.checked_in_at.is_(None),
+                Ticket.invalidated_at.is_(None),
+            )
+            .values(checked_in_at=func.now())
+            .returning(Ticket)
         )
         return session.scalar(statement)
