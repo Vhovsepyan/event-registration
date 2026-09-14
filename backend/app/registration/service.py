@@ -7,7 +7,7 @@ from app.common.errors import ResourceNotFoundError
 from app.event.repository import EventRepository
 from app.registration.models import Registration, RegistrationStatus
 from app.registration.repository import RegistrationRepository
-from app.registration.schemas import RegistrationCreate
+from app.registration.schemas import CancellationRead, RegistrationCreate, RegistrationRead
 from app.ticket.service import TicketService
 
 
@@ -59,3 +59,42 @@ class RegistrationService:
 
         session.refresh(registration)
         return registration
+
+    def cancel(
+        self, session: Session, event_id: uuid.UUID, registration_id: uuid.UUID
+    ) -> CancellationRead:
+        promoted: Registration | None = None
+        with session.begin():
+            event = self.event_repository.get_for_update(session, event_id)
+            if event is None:
+                raise ResourceNotFoundError("Event", event_id)
+
+            registration = self.repository.get(session, event_id, registration_id)
+            if registration is None:
+                raise ResourceNotFoundError("Registration", registration_id)
+
+            if registration.status != RegistrationStatus.CANCELLED:
+                was_confirmed = registration.status == RegistrationStatus.CONFIRMED
+                now = datetime.now(UTC)
+                registration.status = RegistrationStatus.CANCELLED
+                registration.cancelled_at = now
+                if registration.ticket is not None:
+                    registration.ticket.invalidated_at = now
+
+                if was_confirmed:
+                    promoted = self.repository.first_waitlisted(session, event_id)
+                    if promoted is not None:
+                        promoted.status = RegistrationStatus.CONFIRMED
+                        promoted.confirmed_at = now
+                        promoted.ticket = self.ticket_service.issue(session, promoted.id)
+                session.flush()
+
+        session.refresh(registration)
+        if promoted is not None:
+            session.refresh(promoted)
+        return CancellationRead(
+            registration=RegistrationRead.model_validate(registration),
+            promoted_registration=(
+                RegistrationRead.model_validate(promoted) if promoted is not None else None
+            ),
+        )

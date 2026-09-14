@@ -23,3 +23,8 @@ class RegistrationRead(BaseModel):
     confirmed_at: datetime | None
     cancelled_at: datetime | None
     ticket: TicketRead | None
+
+
+class CancellationRead(BaseModel):
+    registration: RegistrationRead
+    promoted_registration: RegistrationRead | None

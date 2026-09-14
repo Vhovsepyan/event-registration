@@ -77,3 +77,16 @@
 - Failures diagnosed: Ruff reformatted the generated migration; ticket detail construction was kept explicit so required nested event/status fields are validated rather than inferred from unrelated ORM attributes.
 - Tests/checks: Ticket migration downgrade/upgrade; `alembic check` (no drift); Ruff lint/format; pytest (20 passed) against PostgreSQL, including issue/retrieve/waitlist/idempotency cases; frontend lint, Vitest (2 passed), and build; test-profile Compose validation; Git whitespace checks.
 - Self-review: Codes use `secrets` with 60 bits of entropy and exclude ambiguous characters, uniqueness is database-enforced, repeated registration returns the same ticket, and issuance shares the capacity transaction. All task 0006 criteria pass with no remaining Critical or Important findings.
+
+## 2026-09-14T14:25:43+04:00 — Task 0007 started
+
+- Task: Cancellation and FIFO promotion
+- Agent/tool: OpenAI Codex using PostgreSQL locks/transactions, FastAPI, SQLAlchemy, Alembic, pytest/httpx, Ruff, Docker Compose, and Git
+- Prompt/reference: `docs/IMPLEMENTATION_PLAN.md` waitlist rules and `docs/tasks/0007-cancellation-and-fifo-promotion.md`
+- Existing work: Capacity-safe registration and ticket issuance from tasks 0005/0006 are committed and green
+- Decisions: Reuse event-row locking for cancellation; retain historical waitlist order after promotion/cancellation to prevent reuse; connect promotion outbox rows in task 0011 when the required durable model exists
+- Status: Completed at 2026-09-14T14:27:53+04:00
+- Result: Added event-locked cancellation, ticket invalidation, atomic earliest-waitlisted promotion, promoted ticket issuance, idempotent repeat behavior, historical queue-order preservation, response schemas/API, migration, and PostgreSQL integration tests.
+- Failures diagnosed: Ruff identified unused test bindings and normalized formatting; these were corrected before final verification.
+- Tests/checks: Waitlist-history migration downgrade/upgrade; `alembic check` (no drift); Ruff lint/format; pytest (23 passed) against PostgreSQL; frontend lint, Vitest (2 passed), and build; test-profile Compose validation; Git whitespace checks.
+- Self-review: New registration and cancellation now share the Event serialization lock, cancellation/promotion/ticket changes share one transaction, original tickets invalidate, FIFO order is stable, and repeat cancellation cannot promote twice. Promotion outbox creation remains explicitly queued for task 0011. All task 0007 criteria pass with no remaining Critical or Important findings.

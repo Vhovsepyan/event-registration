@@ -40,7 +40,7 @@ class Registration(Base):
         ),
         CheckConstraint(
             "(status = 'WAITLISTED' AND waitlist_order IS NOT NULL AND confirmed_at IS NULL) "
-            "OR (status = 'CONFIRMED' AND waitlist_order IS NULL AND confirmed_at IS NOT NULL) "
+            "OR (status = 'CONFIRMED' AND confirmed_at IS NOT NULL) "
             "OR status = 'CANCELLED'",
             name="ck_registrations_status_shape",
         ),
