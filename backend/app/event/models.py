@@ -12,6 +12,10 @@ class Event(Base):
     __table_args__ = (
         CheckConstraint("length(trim(title)) > 0", name="ck_events_title_not_blank"),
         CheckConstraint("capacity > 0", name="ck_events_capacity_positive"),
+        CheckConstraint(
+            "position(chr(10) in title) = 0 AND position(chr(13) in title) = 0",
+            name="ck_events_title_single_line",
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)

@@ -11,6 +11,17 @@ from app.notification.worker import NotificationWorker
 pytestmark = pytest.mark.asyncio
 
 
+class ManualClock:
+    def __init__(self) -> None:
+        self.current = datetime.now(UTC)
+
+    def now(self) -> datetime:
+        return self.current
+
+    def advance(self, delta: timedelta) -> None:
+        self.current += delta
+
+
 class RecordingMailer:
     def __init__(self, failures: int = 0) -> None:
         self.failures = failures
@@ -63,7 +74,8 @@ async def test_worker_retries_failure_then_marks_sent(
     await register_confirmed(client)
     factory = sessionmaker(bind=database_engine, expire_on_commit=False)
     mailer = RecordingMailer(failures=1)
-    worker = NotificationWorker(factory, mailer, claim_timeout=1)
+    clock = ManualClock()
+    worker = NotificationWorker(factory, mailer, claim_timeout=1, clock=clock.now)
 
     assert worker.process_once() == 0
     with Session(database_engine) as session:
@@ -72,7 +84,11 @@ async def test_worker_retries_failure_then_marks_sent(
         assert failed.status == NotificationStatus.PENDING
         assert failed.attempts == 1
         assert failed.last_error == "SMTP unavailable"
+        assert failed.next_attempt_at == clock.now() + worker.backoff(1)
 
+    # The retry is deferred by the backoff rather than spun immediately.
+    assert worker.process_once() == 0
+    clock.advance(worker.backoff(1))
     assert worker.process_once() == 1
     with Session(database_engine) as session:
         sent = session.scalar(select(Notification))

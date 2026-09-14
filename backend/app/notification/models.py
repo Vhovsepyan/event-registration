@@ -31,13 +31,14 @@ class NotificationStatus(StrEnum):
     PROCESSING = "PROCESSING"
     SENT = "SENT"
     SUPPRESSED = "SUPPRESSED"
+    FAILED = "FAILED"
 
 
 class Notification(Base):
     __tablename__ = "notification_outbox"
     __table_args__ = (
         UniqueConstraint("dedupe_key", name="uq_notification_outbox_dedupe_key"),
-        Index("ix_notification_outbox_pending", "status", "created_at"),
+        Index("ix_notification_outbox_pending", "status", "next_attempt_at"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
@@ -63,7 +64,11 @@ class Notification(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
+    next_attempt_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
     claimed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    failed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     suppressed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     suppression_reason: Mapped[str | None] = mapped_column(Text, nullable=True)

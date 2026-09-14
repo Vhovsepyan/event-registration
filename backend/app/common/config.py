@@ -16,6 +16,9 @@ class Settings(BaseSettings):
     notification_poll_interval_seconds: float = Field(default=2.0, gt=0)
     notification_claim_timeout_seconds: float = Field(default=60.0, gt=0)
     notification_batch_size: int = Field(default=20, gt=0, le=1000)
+    notification_max_attempts: int = Field(default=5, gt=0)
+    notification_retry_base_seconds: float = Field(default=5.0, gt=0)
+    notification_retry_max_seconds: float = Field(default=300.0, gt=0)
     reminder_lead_hours: float = Field(default=24.0, gt=0)
     cors_origins: list[str] = ["http://localhost:5173"]
     database_url: str = (

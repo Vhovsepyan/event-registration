@@ -185,6 +185,26 @@ class NotificationService:
             statement = statement.where(Notification.registration_id == registration_id)
         return session.execute(statement).rowcount
 
+    def retry_failed(self, session: Session, notification_id: uuid.UUID | None = None) -> int:
+        """Deliberately return FAILED rows to the queue for one more delivery cycle.
+
+        Attempts and the last error are retained for audit; a row that fails again is marked
+        FAILED immediately because it already reached the attempt limit.
+        """
+        statement = (
+            update(Notification)
+            .where(Notification.status == NotificationStatus.FAILED)
+            .values(
+                status=NotificationStatus.PENDING,
+                next_attempt_at=datetime.now(UTC),
+                failed_at=None,
+                claimed_at=None,
+            )
+        )
+        if notification_id is not None:
+            statement = statement.where(Notification.id == notification_id)
+        return session.execute(statement).rowcount
+
 
 class ReminderService:
     def __init__(self, notification_service: NotificationService | None = None) -> None:

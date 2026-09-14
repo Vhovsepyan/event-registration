@@ -16,6 +16,8 @@ class EventCreate(BaseModel):
         title = value.strip()
         if not title:
             raise ValueError("title must not be blank")
+        if any(character in title for character in "\r\n"):
+            raise ValueError("title must be a single line")
         return title
 
     @field_validator("starts_at")

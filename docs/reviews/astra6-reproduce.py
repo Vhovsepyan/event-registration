@@ -14,6 +14,8 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from unittest.mock import patch
 
+from pydantic import ValidationError
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "backend"))
 
 from sqlalchemy import create_engine, select, text, update
@@ -112,12 +114,30 @@ def stale_reminder(cancel=False):
 
 def poison_starvation():
     with isolated_database() as factory:
-        event = create(factory, title="Accepted title\nwith newline")
+        # Task 0021: titles with line breaks are rejected at the API and database boundaries.
+        try:
+            EventCreate(
+                title="Accepted title\nwith newline",
+                starts_at=datetime.now(UTC) + timedelta(hours=72),
+                capacity=30,
+            )
+        except ValidationError:
+            title_rejected = True
+        else:
+            title_rejected = False
+        event = create(factory, title="Poison")
         for index in range(20):
             register(factory, event, f"poison{index}@example.com")
+        # Simulate already persisted rows that can never be rendered as a valid message.
+        with factory.begin() as session:
+            session.execute(
+                update(Notification)
+                .where(Notification.event_id == event.id)
+                .values(recipient="poison\n" + Notification.recipient)
+            )
         normal = create(factory)
         good = register(factory, normal, "good@example.com")
-        # Real message construction rejects these subjects before any SMTP connection.
+        # Real message construction rejects these recipients before any SMTP connection.
         # Any unexpected SMTP connection fails immediately without external delivery.
         worker = NotificationWorker(factory, SmtpMailer(Settings()), claim_timeout=60)
         with patch("app.notification.worker.smtplib.SMTP", side_effect=AssertionError("Unexpected SMTP attempt")):
@@ -127,9 +147,12 @@ def poison_starvation():
             rows = list(session.scalars(select(Notification)))
         good_row = next(row for row in rows if row.registration_id == good.id)
         bad_rows = [row for row in rows if row.registration_id != good.id]
-        assert good_row.attempts == 0
-        assert all(row.attempts == 3 and "linefeed" in row.last_error for row in bad_rows)
-        return {"cycles": 3, "permanently_failing_old_rows": 20, "healthy_notification_attempts": good_row.attempts, "error": bad_rows[0].last_error}
+        # Task 0021: the healthy row is attempted on the second cycle and the permanently failing
+        # rows are terminal after one attempt instead of occupying every cycle.
+        assert title_rejected
+        assert good_row.attempts == 1
+        assert all(row.status == NotificationStatus.FAILED and row.attempts == 1 for row in bad_rows)
+        return {"cycles": 3, "permanently_failing_old_rows": 20, "healthy_notification_attempts": good_row.attempts, "failed_rows": len(bad_rows), "error": bad_rows[0].last_error}
 
 
 def slow_batch_duplicate():

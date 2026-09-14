@@ -18,6 +18,7 @@ PostgreSQL event-row locks serialize registration, cancellation, promotion, and 
 - Queued reminders are suppressed when a participant cancels or the event is rescheduled, and re-verified when the worker claims them. A cancellation or reschedule that commits after that verification and before SMTP accepts the message cannot recall it (see `docs/decisions/0020-reminder-suppression.md`).
 - Mailpit and the included configuration are for local development, not production deployment.
 - The API has no rate limiting or abuse controls.
+- Outbox rows that fail permanently or exhaust their retries stay `FAILED` until an operator runs the `retry-failed` command; there is no alerting for them beyond the database state.
 - After re-registration history exists, downgrading migration `20260914_0007` requires resolving duplicate historical event/email rows before the former lifetime-unique constraint can be restored; the upgrade path is non-destructive.
 
 ## What I would do next
@@ -85,6 +86,13 @@ In a second backend terminal, with the same `DATABASE_URL` when a port override 
 ```powershell
 cd backend
 uv run python -m app.notification.worker
+```
+
+Transient SMTP failures are retried with exponential backoff (`NOTIFICATION_RETRY_BASE_SECONDS`, `NOTIFICATION_RETRY_MAX_SECONDS`); a row that fails permanently or exhausts `NOTIFICATION_MAX_ATTEMPTS` is kept as `FAILED` with its error. To give failed rows one more delivery cycle:
+
+```powershell
+uv run python -m app.notification.worker retry-failed
+uv run python -m app.notification.worker retry-failed --id <outbox-row-uuid>
 ```
 
 In a frontend terminal:
