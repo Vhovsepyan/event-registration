@@ -103,3 +103,16 @@
 - Failures diagnosed: Ruff normalized formatting. Self-review found that a previously checked-in ticket cancelled later could be misclassified as already checked in; invalidation now takes precedence and a regression test covers it.
 - Tests/checks: `alembic check` (no drift); Ruff lint/format; pytest (27 passed), including overlapping same-ticket requests against PostgreSQL; frontend lint, Vitest (2 passed), and build; test-profile Compose validation; Git whitespace checks.
 - Self-review: Success depends solely on the atomic conditional update, concurrent losers observe the committed timestamp and return already checked in, and unknown/invalidated tickets remain invalid. All task 0008 criteria pass with no remaining Critical or Important findings.
+
+## 2026-09-14T14:30:30+04:00 — Task 0009 started
+
+- Task: Organizer statistics
+- Agent/tool: OpenAI Codex using SQLAlchemy aggregate queries, FastAPI, PostgreSQL, pytest/httpx, Ruff, Docker Compose, and Git
+- Prompt/reference: `docs/IMPLEMENTATION_PLAN.md` organizer statistics rules and `docs/tasks/0009-organizer-statistics.md`
+- Existing work: Registration, waitlist, cancellation/promotion, ticket, and check-in state are committed and green
+- Decisions: Derive every statistic from authoritative rows on request; count only non-invalidated checked-in tickets attached to currently confirmed registrations
+- Status: Completed at 2026-09-14T14:32:23+04:00
+- Result: Added organizer snapshot service/API returning capacity, confirmed, waitlisted, and active checked-in counts derived from authoritative tables, with lifecycle and unknown-event tests.
+- Failures diagnosed: Initial implementation used separate aggregate statements; self-review identified possible mixed snapshots under READ COMMITTED. All values now come from one SQL statement and one database snapshot.
+- Tests/checks: `alembic check` (no drift); Ruff lint/format; pytest (29 passed) against PostgreSQL; frontend lint, Vitest (2 passed), and build; test-profile Compose validation; Git whitespace checks.
+- Self-review: No counters are duplicated, cancelled registrations/invalidated tickets cannot inflate results, and one-statement evaluation makes each response internally consistent. All task 0009 criteria pass with no remaining Critical or Important findings.
