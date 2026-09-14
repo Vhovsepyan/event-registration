@@ -155,3 +155,16 @@
 - Failures diagnosed: A test compared equivalent UTC strings rendered as `Z` and `+00:00`; expected time is now normalized semantically. Live standalone-worker verification exposed an incomplete SQLAlchemy model registry; the worker now explicitly loads all database models before claiming ORM rows.
 - Tests/checks: `alembic check` (no drift); Ruff lint/format; pytest (34 passed) including both message types/content; frontend lint, Vitest (2 passed), and build; test-profile Compose validation; live Uvicorn registration → outbox worker → SMTP → Mailpit delivery (one message, expected subject/recipient); Git whitespace checks.
 - Self-review: Templates contain actionable event/time/ticket information, producer methods retain database dedupe, worker startup is independent of API imports, and actual local delivery is proven. All task 0012 criteria pass with no remaining Critical or Important findings.
+
+## 2026-09-14T14:43:13+04:00 — Task 0013 started
+
+- Task: 24-hour event reminders
+- Agent/tool: OpenAI Codex using PostgreSQL due queries, transactional outbox dedupe, worker polling, pytest, Ruff, Docker Compose, and Git
+- Prompt/reference: `docs/IMPLEMENTATION_PLAN.md` reminder rules and `docs/tasks/0013-event-reminders.md`
+- Existing work: Outbox worker and deterministic email templates from tasks 0011/0012 are committed and green
+- Decisions: Derive due reminders from database state every poll; include confirmed active-ticket holders only; identify a reminder by event, registration, and exact scheduled time
+- Status: Completed at 2026-09-14T14:44:50+04:00
+- Result: Added reminder template/producer, PostgreSQL due-window discovery, worker-cycle generation, configured lead time, active confirmed-ticket filtering, schedule-specific dedupe, and idempotency/window tests.
+- Failures diagnosed: The reminder content test compared equivalent `Z` and `+00:00` UTC representations; it now compares a normalized ISO representation.
+- Tests/checks: `alembic check` (no drift); Ruff lint/format; pytest (36 passed), including repeat generation and waitlist exclusion; frontend lint, Vitest (2 passed), and build; test-profile Compose validation; Git whitespace checks.
+- Self-review: Eligibility is recalculated from PostgreSQL on every worker poll, no in-memory timer is required, cancelled/waitlisted users are excluded, and the exact schedule participates in dedupe. All task 0013 criteria pass with no remaining Critical or Important findings.

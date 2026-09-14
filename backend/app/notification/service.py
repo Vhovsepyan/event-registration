@@ -1,12 +1,18 @@
 import uuid
+from datetime import UTC, datetime, timedelta
 
+from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from app.event.models import Event
 from app.notification.models import Notification, NotificationStatus, NotificationType
-from app.notification.templates import registration_confirmed_email, waitlist_promoted_email
-from app.registration.models import Registration
+from app.notification.templates import (
+    event_reminder_email,
+    registration_confirmed_email,
+    waitlist_promoted_email,
+)
+from app.registration.models import Registration, RegistrationStatus
 from app.ticket.models import Ticket
 
 
@@ -82,3 +88,52 @@ class NotificationService:
             },
             dedupe_key=f"waitlist-promoted:{registration.id}",
         )
+
+    def enqueue_event_reminder(
+        self,
+        session: Session,
+        event: Event,
+        registration: Registration,
+        ticket: Ticket,
+    ) -> None:
+        content = event_reminder_email(event, ticket)
+        self.enqueue(
+            session,
+            notification_type=NotificationType.EVENT_REMINDER,
+            event_id=event.id,
+            registration_id=registration.id,
+            recipient=registration.email,
+            payload={
+                "subject": content.subject,
+                "body": content.body,
+                "ticket_code": ticket.code,
+                "starts_at": event.starts_at.isoformat(),
+            },
+            dedupe_key=f"event-reminder:{event.id}:{registration.id}:{event.starts_at.isoformat()}",
+        )
+
+
+class ReminderService:
+    def __init__(self, notification_service: NotificationService | None = None) -> None:
+        self.notification_service = notification_service or NotificationService()
+
+    def generate_due(
+        self, session: Session, *, now: datetime | None = None, lead_hours: float = 24
+    ) -> int:
+        current_time = now or datetime.now(UTC)
+        due_before = current_time + timedelta(hours=lead_hours)
+        statement = (
+            select(Event, Registration, Ticket)
+            .join(Registration, Registration.event_id == Event.id)
+            .join(Ticket, Ticket.registration_id == Registration.id)
+            .where(
+                Event.starts_at > current_time,
+                Event.starts_at <= due_before,
+                Registration.status == RegistrationStatus.CONFIRMED,
+                Ticket.invalidated_at.is_(None),
+            )
+        )
+        due = list(session.execute(statement).tuples())
+        for event, registration, ticket in due:
+            self.notification_service.enqueue_event_reminder(session, event, registration, ticket)
+        return len(due)

@@ -12,6 +12,7 @@ from app.common.config import Settings, get_settings
 from app.db import models as database_models
 from app.db.session import SessionLocal
 from app.notification.models import Notification, NotificationStatus
+from app.notification.service import ReminderService
 
 _ = database_models
 
@@ -43,12 +44,17 @@ class NotificationWorker:
         mailer: Mailer,
         *,
         claim_timeout: float,
+        reminder_lead_hours: float = 24,
     ) -> None:
         self.session_factory = session_factory
         self.mailer = mailer
         self.claim_timeout = claim_timeout
+        self.reminder_lead_hours = reminder_lead_hours
+        self.reminder_service = ReminderService()
 
     def process_once(self, batch_size: int = 20) -> int:
+        with self.session_factory.begin() as session:
+            self.reminder_service.generate_due(session, lead_hours=self.reminder_lead_hours)
         notifications = self._claim(batch_size)
         sent = 0
         for notification in notifications:
@@ -115,6 +121,7 @@ def run_forever() -> None:
         SessionLocal,
         SmtpMailer(settings),
         claim_timeout=settings.notification_claim_timeout_seconds,
+        reminder_lead_hours=settings.reminder_lead_hours,
     )
     while True:
         worker.process_once(settings.notification_batch_size)

@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     notification_poll_interval_seconds: float = Field(default=2.0, gt=0)
     notification_claim_timeout_seconds: float = Field(default=60.0, gt=0)
     notification_batch_size: int = Field(default=20, gt=0, le=1000)
+    reminder_lead_hours: float = Field(default=24.0, gt=0)
     database_url: str = (
         "postgresql+psycopg://event_registration:event_registration@localhost:5432/"
         "event_registration"

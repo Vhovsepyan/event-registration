@@ -32,3 +32,15 @@ def waitlist_promoted_email(event: Event, ticket: Ticket) -> EmailContent:
             "Keep this code available for check-in."
         ),
     )
+
+
+def event_reminder_email(event: Event, ticket: Ticket) -> EmailContent:
+    return EmailContent(
+        subject=f"Reminder: {event.title} is coming up",
+        body=(
+            f"This is a reminder that {event.title} starts soon.\n\n"
+            f"Event time: {event.starts_at.isoformat()}\n"
+            f"Ticket code: {ticket.code}\n\n"
+            "Bring this code for check-in."
+        ),
+    )
