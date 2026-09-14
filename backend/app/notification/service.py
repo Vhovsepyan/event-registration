@@ -199,6 +199,7 @@ class NotificationService:
                 next_attempt_at=datetime.now(UTC),
                 failed_at=None,
                 claimed_at=None,
+                claim_token=None,
             )
         )
         if notification_id is not None:

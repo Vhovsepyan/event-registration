@@ -71,4 +71,6 @@ poison_starvation: 3 cycles, 20 bad rows retried, healthy row attempts = 0
 slow_batch_duplicate: 20 participants, 25 reminder deliveries, 5 duplicates
 ```
 
+Follow-up 2026-09-14: tasks 0019–0022 were implemented (see their task files and decisions 0019–0022); the script's assertions were updated case by case and all five cases now report the corrected behavior. The original text follows.
+
 [The diagnostic script](astra6-reproduce.py) asserts the observed bugs, not the desired acceptance behavior. Its successful exit confirms reproduction; it does not mean those features are correct. Convert these scenarios to normal regression tests when implementing the tasks. This review did not rerun a clean dependency installation, backend distribution build, real Mailpit delivery, or production/load tests; earlier evidence for those checks remains historical. Existing green suites alone do not cover the failures identified here.

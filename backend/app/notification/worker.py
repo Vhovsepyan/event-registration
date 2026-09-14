@@ -1,13 +1,15 @@
 import argparse
+import logging
 import smtplib
 import time
 import uuid
 from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from email.message import EmailMessage
 from typing import Protocol
 
-from sqlalchemy import or_, select
+from sqlalchemy import Update, or_, select, update
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.common.config import Settings, get_settings
@@ -20,6 +22,18 @@ from app.registration.models import Registration, RegistrationStatus
 from app.ticket.models import Ticket
 
 _ = database_models
+logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class Claim:
+    """A single outbox row owned by this worker for one delivery attempt."""
+
+    notification_id: uuid.UUID
+    token: uuid.UUID
+    recipient: str
+    subject: str
+    body: str
 
 
 class PermanentDeliveryError(Exception):
@@ -90,21 +104,21 @@ class NotificationWorker:
             self.reminder_service.generate_due(
                 session, now=self.clock(), lead_hours=self.reminder_lead_hours
             )
-        notifications = self._claim(batch_size)
         sent = 0
-        for notification in notifications:
+        for _ in range(batch_size):
+            # Each row is claimed immediately before its own send, so a lease only ever has to
+            # cover one delivery and a slow batch cannot outlive the ownership of its tail.
+            claim = self._claim_next()
+            if claim is None:
+                break
             try:
-                self.mailer.send(
-                    notification.recipient,
-                    str(notification.payload.get("subject", "Event Registration")),
-                    str(notification.payload.get("body", "")),
-                )
+                self.mailer.send(claim.recipient, claim.subject, claim.body)
             except PermanentDeliveryError as exc:
-                self._mark_failed(notification.id, str(exc), permanent=True)
+                self._mark_failed(claim, str(exc), permanent=True)
             except Exception as exc:
-                self._mark_failed(notification.id, str(exc), permanent=False)
+                self._mark_failed(claim, str(exc), permanent=False)
             else:
-                self._mark_sent(notification.id)
+                self._mark_sent(claim)
                 sent += 1
         return sent
 
@@ -112,42 +126,55 @@ class NotificationWorker:
         seconds = min(self.retry_base_seconds * 2 ** (attempts - 1), self.retry_max_seconds)
         return timedelta(seconds=seconds)
 
-    def _claim(self, batch_size: int) -> list[Notification]:
+    def _claim_next(self) -> Claim | None:
         now = self.clock()
         stale_before = now - timedelta(seconds=self.claim_timeout)
         with self.session_factory.begin() as session:
-            statement = (
-                select(Notification)
-                .where(
-                    or_(
-                        (Notification.status == NotificationStatus.PENDING)
-                        & (Notification.next_attempt_at <= now),
-                        (
-                            (Notification.status == NotificationStatus.PROCESSING)
-                            & (Notification.claimed_at < stale_before)
-                        ),
+            while True:
+                statement = (
+                    select(Notification)
+                    .where(
+                        or_(
+                            (Notification.status == NotificationStatus.PENDING)
+                            & (Notification.next_attempt_at <= now),
+                            (
+                                (Notification.status == NotificationStatus.PROCESSING)
+                                & (Notification.claimed_at < stale_before)
+                            ),
+                        )
                     )
+                    # Deferred retries sort behind work that became due earlier, so a failing
+                    # batch cannot occupy every cycle ahead of newer healthy mail.
+                    .order_by(
+                        Notification.next_attempt_at, Notification.created_at, Notification.id
+                    )
+                    .limit(1)
+                    .with_for_update(skip_locked=True)
                 )
-                # Deferred retries sort behind work that became due earlier, so a failing
-                # batch cannot occupy every cycle ahead of newer healthy mail.
-                .order_by(Notification.next_attempt_at, Notification.created_at, Notification.id)
-                .limit(batch_size)
-                .with_for_update(skip_locked=True)
-            )
-            claimed: list[Notification] = []
-            for notification in session.scalars(statement):
+                notification = session.scalar(statement)
+                if notification is None:
+                    return None
                 obsolete = self._obsolete_reason(session, notification)
                 if obsolete is not None:
                     notification.status = NotificationStatus.SUPPRESSED
                     notification.suppressed_at = now
                     notification.suppression_reason = obsolete
                     notification.claimed_at = None
+                    notification.claim_token = None
+                    session.flush()
                     continue
+                token = uuid.uuid4()
                 notification.status = NotificationStatus.PROCESSING
                 notification.claimed_at = now
+                notification.claim_token = token
                 notification.attempts += 1
-                claimed.append(notification)
-            return claimed
+                return Claim(
+                    notification_id=notification.id,
+                    token=token,
+                    recipient=notification.recipient,
+                    subject=str(notification.payload.get("subject", "Event Registration")),
+                    body=str(notification.payload.get("body", "")),
+                )
 
     def _obsolete_reason(self, session: Session, notification: Notification) -> str | None:
         """Re-check reminder intent against current state immediately before delivery.
@@ -170,21 +197,57 @@ class NotificationWorker:
             return "ticket invalidated before delivery"
         return None
 
-    def _mark_sent(self, notification_id: uuid.UUID) -> None:
-        with self.session_factory.begin() as session:
-            notification = session.get(Notification, notification_id)
-            if notification is not None:
-                notification.status = NotificationStatus.SENT
-                notification.sent_at = self.clock()
-                notification.claimed_at = None
-                notification.last_error = None
+    def _owned(self, claim: Claim) -> Update:
+        """Only the worker holding the current token may finish a PROCESSING row.
 
-    def _mark_failed(self, notification_id: uuid.UUID, error: str, *, permanent: bool) -> None:
+        If the lease expired and another worker reclaimed the row, that worker owns the
+        outcome; a late completion or failure from the previous owner must not overwrite it.
+        """
+        return update(Notification).where(
+            Notification.id == claim.notification_id,
+            Notification.claim_token == claim.token,
+            Notification.status == NotificationStatus.PROCESSING,
+        )
+
+    def _mark_sent(self, claim: Claim) -> bool:
         with self.session_factory.begin() as session:
-            notification = session.get(Notification, notification_id)
+            updated = session.execute(
+                self._owned(claim).values(
+                    status=NotificationStatus.SENT,
+                    sent_at=self.clock(),
+                    claimed_at=None,
+                    claim_token=None,
+                    last_error=None,
+                )
+            ).rowcount
+        if updated == 0:
+            logger.warning(
+                "notification %s was sent but its claim had been taken over; "
+                "the current owner records the outcome (at-least-once delivery boundary)",
+                claim.notification_id,
+            )
+        return updated == 1
+
+    def _mark_failed(self, claim: Claim, error: str, *, permanent: bool) -> bool:
+        with self.session_factory.begin() as session:
+            notification = session.scalar(
+                select(Notification)
+                .where(
+                    Notification.id == claim.notification_id,
+                    Notification.claim_token == claim.token,
+                    Notification.status == NotificationStatus.PROCESSING,
+                )
+                .with_for_update()
+            )
             if notification is None:
-                return
+                logger.warning(
+                    "notification %s failed but its claim had been taken over; leaving the "
+                    "current owner's state untouched",
+                    claim.notification_id,
+                )
+                return False
             notification.claimed_at = None
+            notification.claim_token = None
             notification.last_error = error[:2000]
             if permanent or notification.attempts >= self.max_attempts:
                 notification.status = NotificationStatus.FAILED
@@ -192,6 +255,7 @@ class NotificationWorker:
             else:
                 notification.status = NotificationStatus.PENDING
                 notification.next_attempt_at = self.clock() + self.backoff(notification.attempts)
+            return True
 
 
 def build_worker(settings: Settings) -> NotificationWorker:

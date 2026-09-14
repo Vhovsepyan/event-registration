@@ -2,7 +2,8 @@
 
 Run from backend: ./.venv/Scripts/python.exe ../docs/reviews/astra6-reproduce.py
 Only a fresh random schema in event_registration_test is created and removed.
-Assertions describe the reviewed bugs; they should change when fixes land.
+Assertions originally described the reviewed bugs. Tasks 0019-0022 corrected each case, so the
+assertions now describe the fixed behavior; the pytest suites are the authoritative regression tests.
 """
 
 import json
@@ -162,7 +163,10 @@ def slow_batch_duplicate():
             register(factory, event, f"slow{index}@example.com")
         with factory.begin() as session:
             session.execute(update(Notification).values(status=NotificationStatus.SENT))
-        instant = datetime.now(UTC)
+        # Task 0022: the worker takes an injectable clock, so the simulated time is passed in
+        # instead of patching the module. It starts slightly ahead of wall time because the
+        # reminders generated inside the cycle get a database-side next_attempt_at.
+        instant = datetime.now(UTC) + timedelta(seconds=2)
 
         class Clock:
             current = instant
@@ -172,7 +176,7 @@ def slow_batch_duplicate():
                 return cls.current
 
         second_mailer = RecordingMailer()
-        second_worker = NotificationWorker(factory, second_mailer, claim_timeout=60)
+        second_worker = NotificationWorker(factory, second_mailer, claim_timeout=60, clock=Clock.now)
 
         class SlowMailer(RecordingMailer):
             def send(self, recipient, subject, body):
@@ -182,12 +186,14 @@ def slow_batch_duplicate():
                     second_worker.process_once()
 
         first_mailer = SlowMailer()
-        first_worker = NotificationWorker(factory, first_mailer, claim_timeout=60)
-        with patch("app.notification.worker.datetime", Clock):
-            first_worker.process_once()
+        first_worker = NotificationWorker(factory, first_mailer, claim_timeout=60, clock=Clock.now)
+        first_worker.process_once()
         counts = Counter(message[0] for message in first_mailer.messages + second_mailer.messages)
         duplicates = sum(count - 1 for count in counts.values())
-        assert duplicates == 5
+        # Task 0022: each row is claimed immediately before its own send, so the second worker
+        # takes only unclaimed rows and nothing is delivered twice.
+        assert duplicates == 0
+        assert sum(counts.values()) == 20
         return {"participants": 20, "reminder_deliveries": sum(counts.values()), "duplicates_without_crash": duplicates, "simulated_seconds_per_send": 4}
 
 

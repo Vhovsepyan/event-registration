@@ -74,3 +74,12 @@ Both default and test-profile Compose configurations validate successfully, and 
 - Browser proof: both Playwright scenarios passed (2 total). The existing two-context check-in/SSE proof remains intact; the new scenario proved confirmed cancellation, removal of the old active ticket, same-email re-registration, old-ticket rejection, and new-ticket check-in through real HTTP and PostgreSQL.
 - Direct database review: the active event/email partial unique index is present; duplicate active-registration groups, over-capacity events, invalid active tickets, valid cancelled tickets, and duplicate outbox dedupe-key groups all returned 0.
 - Git proof: whitespace check passed and only Task 0018 files were included in the focused change.
+
+## Tasks 0019–0022 post-review verification
+
+- Completed: 2026-09-14T18:22:19+04:00
+- Migrations: the isolated test database was recreated empty before each task and migrated from base through the new head `20260914_0011`; each new revision (`0008`–`0011`) was also downgraded and re-upgraded, `alembic check` reported no drift after every task, the `0009` back-fill and `0010` title fold/constraint were verified with seeded rows, and the `0009`/`0010` downgrade guards refused to drop `SUPPRESSED`/`FAILED` rows. The persistent development database upgraded to `0011`.
+- Backend proof: Ruff lint and format passed (67 files); the full PostgreSQL suite passed all 70 tests (24 new: reschedule revisions, reminder lifecycle and forced-overlap generation/rescheduling, outbox fairness/backoff/classification, and claim ownership); the focused last-seat, atomic check-in, reminder-idempotency, and reschedule tests passed (16).
+- Review reproduction: `docs/reviews/astra6-reproduce.py` now reports 3/3 reschedule notifications, 0 stale reminders after postponement and after cancellation, healthy attempts 1 with 20 terminal failures for the poison batch, and 20 deliveries with 0 duplicates for the slow two-worker batch.
+- Frontend and browser proof: Oxlint passed; Vitest passed all 11 tests; the TypeScript/Vite production build passed; both Playwright scenarios passed (2 total), including the two-context live check-in/SSE proof and cancellation/re-registration, against the migrated development database; ports 8000/5173 were released afterwards.
+- Git proof: whitespace checks passed and each task was committed separately.

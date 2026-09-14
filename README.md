@@ -14,7 +14,7 @@ PostgreSQL event-row locks serialize registration, cancellation, promotion, and 
 
 - Authentication and authorization are intentionally not implemented. Organizer, rescheduling, and staff check-in routes must not be exposed publicly as-is; participant cancellation also relies on possession of event and registration identifiers.
 - Participant state is held in the current browser flow. There is no authenticated participant account or recovery/list endpoint after a page refresh.
-- SMTP delivery is at-least-once at the transport boundary. If the worker crashes after SMTP accepts a message but before the outbox row is marked `SENT`, the stale claim is retried and the recipient can receive a duplicate.
+- SMTP delivery is at-least-once at the transport boundary. Each outbox row is claimed with an ownership token immediately before its own send, so a slow batch cannot be resent by a second worker and a stale owner cannot overwrite a newer claim; but if the worker crashes after SMTP accepts a message, or a single SMTP call outlives the claim lease, before the row is marked `SENT`, the row is reclaimed and the recipient can receive a duplicate.
 - Queued reminders are suppressed when a participant cancels or the event is rescheduled, and re-verified when the worker claims them. A cancellation or reschedule that commits after that verification and before SMTP accepts the message cannot recall it (see `docs/decisions/0020-reminder-suppression.md`).
 - Mailpit and the included configuration are for local development, not production deployment.
 - The API has no rate limiting or abuse controls.
@@ -163,4 +163,4 @@ See [the multi-client verification](docs/demo/multi-client-verification.md) for 
 - `GET /api/events/{event_id}/stats`
 - `GET /api/events/{event_id}/stats/stream` (SSE)
 
-Registration, re-registration, cancellation/promotion, ticket issuance, and notification intent commit transactionally. PostgreSQL event-row locks serialize seat changes. Ticket check-in uses a conditional atomic update. SMTP happens only in the separate retrying outbox worker and has the at-least-once transport limitation described above.
+Registration, re-registration, cancellation/promotion, ticket issuance, and notification intent commit transactionally. PostgreSQL event-row locks serialize seat changes. Ticket check-in uses a conditional atomic update. SMTP happens only in the separate retrying outbox worker, which claims one row at a time under an ownership token, defers transient failures with backoff, retires permanent failures as `FAILED`, suppresses obsolete reminders, and has the at-least-once transport limitation described above.
