@@ -1,4 +1,5 @@
 import type {
+  CancellationResponse,
   CheckInResponse,
   EventRecord,
   EventStats,
@@ -54,6 +55,11 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ email }),
     }),
+  cancelRegistration: (eventId: string, registrationId: string) =>
+    request<CancellationResponse>(
+      `/api/events/${eventId}/registrations/${registrationId}/cancel`,
+      { method: 'POST' },
+    ),
   getTicket: (code: string) => request<TicketDetails>(`/api/tickets/${encodeURIComponent(code)}`),
   checkIn: (code: string) =>
     request<CheckInResponse>('/api/check-ins', {

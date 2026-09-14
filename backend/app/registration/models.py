@@ -15,6 +15,7 @@ from sqlalchemy import (
     String,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -34,7 +35,13 @@ class RegistrationStatus(StrEnum):
 class Registration(Base):
     __tablename__ = "registrations"
     __table_args__ = (
-        UniqueConstraint("event_id", "normalized_email", name="uq_registrations_event_email"),
+        Index(
+            "uq_registrations_active_event_email",
+            "event_id",
+            "normalized_email",
+            unique=True,
+            postgresql_where=text("status IN ('CONFIRMED', 'WAITLISTED')"),
+        ),
         UniqueConstraint(
             "event_id", "waitlist_order", name="uq_registrations_event_waitlist_order"
         ),

@@ -4,7 +4,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import App from './App'
-import type { EventRecord, EventStats } from './types'
+import type { EventRecord, EventStats, Registration } from './types'
 
 const EVENT: EventRecord = {
   id: 'event-1',
@@ -22,6 +22,35 @@ const STATS: EventStats = {
   confirmed: 7,
   waitlisted: 2,
   checked_in: 3,
+}
+
+const CONFIRMED_REGISTRATION: Registration = {
+  id: 'registration-1',
+  event_id: EVENT.id,
+  email: 'guest@example.com',
+  status: 'CONFIRMED',
+  waitlist_order: null,
+  created_at: '2030-01-01T00:00:00Z',
+  confirmed_at: '2030-01-01T00:00:00Z',
+  cancelled_at: null,
+  ticket: {
+    id: 'ticket-1',
+    registration_id: 'registration-1',
+    code: 'ABCD-EFGH-IJKL',
+    created_at: '2030-01-01T00:00:00Z',
+    checked_in_at: null,
+    invalidated_at: null,
+  },
+}
+
+const WAITLISTED_REGISTRATION: Registration = {
+  ...CONFIRMED_REGISTRATION,
+  id: 'registration-2',
+  email: 'waiting@example.com',
+  status: 'WAITLISTED',
+  waitlist_order: 1,
+  confirmed_at: null,
+  ticket: null,
 }
 
 function response(body: unknown): Response {
@@ -50,24 +79,7 @@ describe('product flows', () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(response(EVENT))
-      .mockResolvedValueOnce(response({
-        id: 'registration-1',
-        event_id: EVENT.id,
-        email: 'guest@example.com',
-        status: 'CONFIRMED',
-        waitlist_order: null,
-        created_at: '2030-01-01T00:00:00Z',
-        confirmed_at: '2030-01-01T00:00:00Z',
-        cancelled_at: null,
-        ticket: {
-          id: 'ticket-1',
-          registration_id: 'registration-1',
-          code: 'ABCD-EFGH-IJKL',
-          created_at: '2030-01-01T00:00:00Z',
-          checked_in_at: null,
-          invalidated_at: null,
-        },
-      }))
+      .mockResolvedValueOnce(response(CONFIRMED_REGISTRATION))
     vi.stubGlobal('fetch', fetchMock)
     const user = userEvent.setup()
 
@@ -82,6 +94,124 @@ describe('product flows', () => {
       'href',
       '/tickets/ABCD-EFGH-IJKL',
     )
+  })
+
+  it('confirms cancellation, prevents repeat requests, and removes the active ticket', async () => {
+    let finishCancellation: ((value: Response) => void) | undefined
+    const cancellation = new Promise<Response>((resolve) => {
+      finishCancellation = resolve
+    })
+    const cancelled = {
+      ...CONFIRMED_REGISTRATION,
+      status: 'CANCELLED' as const,
+      cancelled_at: '2030-01-02T00:00:00Z',
+      ticket: { ...CONFIRMED_REGISTRATION.ticket!, invalidated_at: '2030-01-02T00:00:00Z' },
+    }
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(response(EVENT))
+      .mockResolvedValueOnce(response(CONFIRMED_REGISTRATION))
+      .mockReturnValueOnce(cancellation)
+    vi.stubGlobal('fetch', fetchMock)
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const user = userEvent.setup()
+
+    renderAt('/events/event-1')
+    await screen.findByRole('heading', { name: EVENT.title })
+    await user.type(screen.getByLabelText('Email address'), CONFIRMED_REGISTRATION.email)
+    await user.click(screen.getByRole('button', { name: 'Register' }))
+    const cancelButton = await screen.findByRole('button', { name: 'Cancel participation' })
+    await user.click(cancelButton)
+
+    expect(window.confirm).toHaveBeenCalledWith('Cancel your participation in this event?')
+    expect(screen.getByRole('button', { name: 'Cancelling…' })).toBeDisabled()
+    await user.click(screen.getByRole('button', { name: 'Cancelling…' }))
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+    finishCancellation?.(response({ registration: cancelled, promoted_registration: null }))
+
+    expect(await screen.findByRole('heading', { name: 'Your participation is cancelled' })).toBeVisible()
+    expect(screen.getByText('Your previous ticket is no longer active.')).toBeVisible()
+    expect(screen.queryByText(CONFIRMED_REGISTRATION.ticket!.code)).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'View ticket' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Register again' })).toBeVisible()
+    expect(screen.getByLabelText('Email address')).toHaveValue(CONFIRMED_REGISTRATION.email)
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      expect.stringContaining('/api/events/event-1/registrations/registration-1/cancel'),
+      expect.objectContaining({ method: 'POST' }),
+    )
+  })
+
+  it('shows that a cancelled waitlisted participant is no longer waiting', async () => {
+    const cancelled = {
+      ...WAITLISTED_REGISTRATION,
+      status: 'CANCELLED' as const,
+      cancelled_at: '2030-01-02T00:00:00Z',
+    }
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValueOnce(response(EVENT))
+        .mockResolvedValueOnce(response(WAITLISTED_REGISTRATION))
+        .mockResolvedValueOnce(response({ registration: cancelled, promoted_registration: null })),
+    )
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const user = userEvent.setup()
+
+    renderAt('/events/event-1')
+    await screen.findByRole('heading', { name: EVENT.title })
+    await user.type(screen.getByLabelText('Email address'), WAITLISTED_REGISTRATION.email)
+    await user.click(screen.getByRole('button', { name: 'Register' }))
+    await user.click(await screen.findByRole('button', { name: 'Cancel participation' }))
+
+    expect(await screen.findByText('You are no longer on the waiting list.')).toBeVisible()
+    expect(screen.queryByRole('heading', { name: 'You’re on the waiting list' })).not.toBeInTheDocument()
+  })
+
+  it('keeps active state and displays the API error when cancellation fails', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(response(EVENT))
+      .mockResolvedValueOnce(response(CONFIRMED_REGISTRATION))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ detail: 'Cancellation unavailable' }), {
+          status: 503,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      )
+    vi.stubGlobal('fetch', fetchMock)
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const user = userEvent.setup()
+
+    renderAt('/events/event-1')
+    await screen.findByRole('heading', { name: EVENT.title })
+    await user.type(screen.getByLabelText('Email address'), CONFIRMED_REGISTRATION.email)
+    await user.click(screen.getByRole('button', { name: 'Register' }))
+    await user.click(await screen.findByRole('button', { name: 'Cancel participation' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Cancellation unavailable')
+    expect(screen.getByRole('heading', { name: 'Your place is secured' })).toBeVisible()
+    expect(screen.getByText(CONFIRMED_REGISTRATION.ticket!.code)).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Cancel participation' })).toBeEnabled()
+  })
+
+  it('does not send a cancellation request when confirmation is declined', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(response(EVENT))
+      .mockResolvedValueOnce(response(WAITLISTED_REGISTRATION))
+    vi.stubGlobal('fetch', fetchMock)
+    vi.spyOn(window, 'confirm').mockReturnValue(false)
+    const user = userEvent.setup()
+
+    renderAt('/events/event-1')
+    await screen.findByRole('heading', { name: EVENT.title })
+    await user.type(screen.getByLabelText('Email address'), WAITLISTED_REGISTRATION.email)
+    await user.click(screen.getByRole('button', { name: 'Register' }))
+    await user.click(await screen.findByRole('button', { name: 'Cancel participation' }))
+
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(screen.getByRole('heading', { name: 'You’re on the waiting list' })).toBeVisible()
   })
 
   it.each([

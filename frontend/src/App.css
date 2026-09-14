@@ -208,6 +208,17 @@ textarea {
   background: #edf2eb;
 }
 
+.button--danger {
+  margin-top: 1rem;
+  border: 1px solid #b84a40;
+  color: #742b25;
+  background: transparent;
+}
+
+.button--danger:hover {
+  background: #fff3f1;
+}
+
 .notice,
 .result-card {
   margin: 1.5rem 0 0;

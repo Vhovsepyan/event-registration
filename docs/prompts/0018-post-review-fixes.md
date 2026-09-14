@@ -1,0 +1,5 @@
+# Task 0018 prompt evidence
+
+Source: the user's focused post-review fix request dated 2026-09-14.
+
+Fix cancelled-participant re-registration without redesigning the application. Inspect and preserve database constraints, cancellation history, ticket invalidation, notification dedupe, PostgreSQL locking, the transactional outbox, API behavior, and concurrency safety. Add participant cancellation and re-registration to the existing React flow with confirmation, pending/error handling, clear cancelled states, component tests, and relevant Playwright proof. Document OpenAI Codex usage factually without inventing a model identifier; add honest current-state, limitation, next-step, and SMTP at-least-once wording; extend the demo while retaining the existing two-client SSE proof. Run the complete backend/frontend/migration/build/browser verification matrix, self-review the named invariants, fix all Critical and Important findings, and commit one focused task without changing historical timestamps.

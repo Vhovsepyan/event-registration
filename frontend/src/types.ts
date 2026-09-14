@@ -29,6 +29,11 @@ export type Registration = {
   ticket: Ticket | null
 }
 
+export type CancellationResponse = {
+  registration: Registration
+  promoted_registration: Registration | null
+}
+
 export type TicketDetails = Ticket & {
   event: EventRecord
   registration_status: Registration['status']

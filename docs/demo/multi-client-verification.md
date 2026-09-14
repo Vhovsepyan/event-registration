@@ -14,7 +14,7 @@ npm run test:e2e
 
 Those commands use the standard PostgreSQL port 5432. If that port is occupied, start Compose with `$env:POSTGRES_PORT = "5433"` and set `$env:DATABASE_URL = "postgresql+psycopg://event_registration:event_registration@localhost:5433/event_registration"` in the shell that runs both Alembic and Playwright.
 
-Playwright starts the API and Vite servers, creates a unique event, and opens two isolated browser contexts. Browser A stays on the organizer dashboard. Browser B registers, receives a real ticket, and checks it in. The assertion passes only when browser A's checked-in value changes from 0 to 1 through SSE without a reload.
+Playwright starts the API and Vite servers and runs two proofs. The existing multi-client proof creates a unique event and opens two isolated browser contexts: browser A stays on the organizer dashboard while browser B registers, receives a real ticket, and checks it in. The assertion passes only when browser A's checked-in value changes from 0 to 1 through SSE without a reload. A second proof cancels a confirmed participant through the UI, verifies the old ticket disappears and fails check-in, re-registers the same email, verifies a fresh ticket is issued, and checks in that new ticket successfully.
 
 The default browser channel is installed Microsoft Edge. Set `PLAYWRIGHT_CHANNEL=chrome` to use installed Google Chrome instead.
 

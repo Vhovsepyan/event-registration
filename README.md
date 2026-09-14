@@ -4,6 +4,35 @@ A client-server event registration product with capacity-safe registration, FIFO
 
 The backend and frontend are separate applications. FastAPI owns the HTTP/SSE API and PostgreSQL state; React communicates with it over the network. Mailpit captures local SMTP messages for inspection.
 
+## Current state
+
+The implemented product supports event creation and rescheduling, capacity-safe participant registration, cancellation and re-registration, FIFO waitlisting and automatic promotion, fresh tickets per confirmed participation attempt, atomic one-time check-in, live organizer counts over SSE, and durable notification intent through a PostgreSQL transactional outbox. Cancelled registrations remain as history, and their tickets remain invalid.
+
+PostgreSQL event-row locks serialize registration, cancellation, promotion, and re-registration seat decisions. Database constraints permit at most one active registration per normalized email and event. Notification generation is deduplicated in PostgreSQL; a separate worker claims and delivers pending messages through SMTP.
+
+## Known limitations
+
+- Authentication and authorization are intentionally not implemented. Organizer, rescheduling, and staff check-in routes must not be exposed publicly as-is; participant cancellation also relies on possession of event and registration identifiers.
+- Participant state is held in the current browser flow. There is no authenticated participant account or recovery/list endpoint after a page refresh.
+- SMTP delivery is at-least-once at the transport boundary. If the worker crashes after SMTP accepts a message but before the outbox row is marked `SENT`, the stale claim is retried and the recipient can receive a duplicate.
+- Mailpit and the included configuration are for local development, not production deployment.
+- The API has no rate limiting or abuse controls.
+- After re-registration history exists, downgrading migration `20260914_0007` requires resolving duplicate historical event/email rows before the former lifetime-unique constraint can be restored; the upgrade path is non-destructive.
+
+## What I would do next
+
+- Add organizer/staff authentication and role-based authorization, then design a secure participant registration-management flow.
+- Integrate a production email provider with provider-supported idempotency and delivery-event handling.
+- Add structured logging, metrics, tracing, outbox-lag alerts, and operational dashboards.
+- Add production deployment, secrets, TLS, backup, migration, and rollback configuration.
+- Add rate limiting and request-abuse protection at the API edge.
+
+## AI-assisted development
+
+OpenAI Codex was used as the implementation agent to inspect the repository, implement focused tasks, run tests and local proof, diagnose failures, and record technical decisions. It was used to provide a repeatable implementation-and-verification workflow while keeping the work auditable. The repository does not contain evidence for a more specific model identifier, so none is claimed here.
+
+Task specifications are in `docs/tasks/`, prompt evidence is in `docs/prompts/`, architecture and product decisions are in `docs/decisions/`, timestamped implementation evidence is in `docs/agent/development-log.md`, and demonstration/verification records are in `docs/demo/`.
+
 ## Prerequisites
 
 - Python 3.13.15
@@ -70,7 +99,7 @@ Open `http://localhost:5173`. Mailpit's inbox is at `http://localhost:8025`. The
 ## Product routes
 
 - `/` — create an event
-- `/events/{event_id}` — event details and participant registration
+- `/events/{event_id}` — event details, participant registration, cancellation, and re-registration
 - `/events/{event_id}/organizer` — live organizer dashboard and rescheduling
 - `/tickets/{ticket_code}` — ticket details and status
 - `/check-in` — manual staff check-in
@@ -125,4 +154,4 @@ See [the multi-client verification](docs/demo/multi-client-verification.md) for 
 - `GET /api/events/{event_id}/stats`
 - `GET /api/events/{event_id}/stats/stream` (SSE)
 
-Registration, cancellation/promotion, ticket issuance, and notification intent commit transactionally. PostgreSQL event-row locks serialize seat changes. Ticket check-in uses a conditional atomic update. SMTP happens only in the separate retrying outbox worker.
+Registration, re-registration, cancellation/promotion, ticket issuance, and notification intent commit transactionally. PostgreSQL event-row locks serialize seat changes. Ticket check-in uses a conditional atomic update. SMTP happens only in the separate retrying outbox worker and has the at-least-once transport limitation described above.

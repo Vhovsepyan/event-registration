@@ -3,7 +3,7 @@
 - Date: 2026-09-14
 - Environment: Windows, Python 3.13.15, PostgreSQL 17, project development DB on port 5433, isolated test DB on port 5434
 - Result: Passed
-- Final post-review rerun: 2026-09-14T15:36:13+04:00
+- Task 0017 final rerun: 2026-09-14T15:36:13+04:00
 
 ## Empty database and migrations
 
@@ -63,3 +63,14 @@ Required decisions are covered as follows:
 - Reschedule recipients: `docs/decisions/0014-reschedule-recipients.md`
 
 Both default and test-profile Compose configurations validate successfully, and Git whitespace checks pass.
+
+## Task 0018 post-review verification
+
+- Completed: 2026-09-14T16:54:08+04:00
+- Empty-schema proof: recreated tmpfs-backed PostgreSQL reported 0 public tables, then Alembic applied `20260914_0001` through new head `20260914_0007`; `alembic current` reported head and `alembic check` reported no drift. The persistent development schema also upgraded from `0006` to `0007` with no drift.
+- Backend static/package proof: locked `uv sync` passed; Ruff lint and format passed across 60 files; sdist and wheel built successfully.
+- Backend test proof: 16 focused PostgreSQL registration/cancellation/capacity/ticket tests passed; the full PostgreSQL suite passed all 46 tests, including 6 new re-registration cases.
+- Frontend proof: clean `npm ci` installed 118 packages with 0 vulnerabilities; Oxlint passed; all 11 Vitest tests passed; TypeScript/Vite production build passed.
+- Browser proof: both Playwright scenarios passed (2 total). The existing two-context check-in/SSE proof remains intact; the new scenario proved confirmed cancellation, removal of the old active ticket, same-email re-registration, old-ticket rejection, and new-ticket check-in through real HTTP and PostgreSQL.
+- Direct database review: the active event/email partial unique index is present; duplicate active-registration groups, over-capacity events, invalid active tickets, valid cancelled tickets, and duplicate outbox dedupe-key groups all returned 0.
+- Git proof: whitespace check passed and only Task 0018 files were included in the focused change.

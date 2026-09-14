@@ -13,6 +13,7 @@ class RegistrationRepository:
         statement = select(Registration).where(
             Registration.event_id == event_id,
             Registration.normalized_email == normalized_email,
+            Registration.status.in_(["CONFIRMED", "WAITLISTED"]),
         )
         return session.scalar(statement)
 
