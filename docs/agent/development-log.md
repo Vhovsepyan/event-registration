@@ -129,3 +129,16 @@
 - Failures diagnosed: Ruff normalized imports. Self-review identified a potential busy loop from a nonpositive configured poll interval; Pydantic now rejects such configuration.
 - Tests/checks: `alembic check` (no drift); Ruff lint/format; pytest (31 passed), including dual-stream SSE tests against PostgreSQL; frontend lint, Vitest (2 passed), and build; test-profile Compose validation; Git whitespace checks.
 - Self-review: Streaming uses native SSE, database reads execute off the event loop with a fresh session per snapshot, only changes emit, and no external pub/sub infrastructure was added. All task 0010 criteria pass with no remaining Critical or Important findings.
+
+## 2026-09-14T14:35:50+04:00 — Task 0011 started
+
+- Task: Notification outbox and Mailpit
+- Agent/tool: OpenAI Codex using SQLAlchemy/PostgreSQL JSONB and conflict handling, Python SMTP, Mailpit/Docker Compose, pytest fakes, Ruff, and Git
+- Prompt/reference: `docs/IMPLEMENTATION_PLAN.md` email/outbox rules and `docs/tasks/0011-notification-outbox-and-mailpit.md`
+- Existing work: Registration and promotion transactions are committed and have documented notification integration points
+- Decisions: Persist notification intent with business state; dedupe in PostgreSQL; perform SMTP only in a separately invoked polling worker; retain failed rows as pending for later retry; pin locally verified Mailpit v1.27.8
+- Status: Completed at 2026-09-14T14:39:39+04:00
+- Result: Added the PostgreSQL JSONB notification outbox/migration, atomic confirmed/promotion enqueues, semantic dedupe, multi-worker-safe claim/recovery, SMTP adapter, retrying worker entry point, pinned Mailpit service, and worker/outbox integration tests.
+- Failures diagnosed: One test compared a PostgreSQL UUID to its JSON string representation; the assertion was corrected. Ruff normalized migration formatting.
+- Tests/checks: Outbox migration downgrade/upgrade; `alembic check` (no drift); Ruff lint/format; pytest (33 passed), including dedupe and fail-then-retry delivery; frontend lint, Vitest (2 passed), and build; default/test Compose validation; live Mailpit API HTTP 200; Git whitespace checks.
+- Self-review: Business commits contain durable intent but no SMTP calls, duplicate producers are database-safe, concurrent workers skip locked claims, crashed claims can age out, and failed sends return to pending with attempts/errors recorded. All task 0011 criteria pass with no remaining Critical or Important findings.

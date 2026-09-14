@@ -10,6 +10,12 @@ class Settings(BaseSettings):
     app_name: str = "Event Registration API"
     environment: str = "development"
     sse_poll_interval_seconds: float = Field(default=1.0, gt=0)
+    smtp_host: str = "localhost"
+    smtp_port: int = Field(default=1025, gt=0, le=65535)
+    smtp_from: str = "events@example.local"
+    notification_poll_interval_seconds: float = Field(default=2.0, gt=0)
+    notification_claim_timeout_seconds: float = Field(default=60.0, gt=0)
+    notification_batch_size: int = Field(default=20, gt=0, le=1000)
     database_url: str = (
         "postgresql+psycopg://event_registration:event_registration@localhost:5432/"
         "event_registration"

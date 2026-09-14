@@ -5,6 +5,8 @@ from sqlalchemy.orm import Session
 
 from app.common.errors import ResourceNotFoundError
 from app.event.repository import EventRepository
+from app.notification.models import NotificationType
+from app.notification.service import NotificationService
 from app.registration.models import Registration, RegistrationStatus
 from app.registration.repository import RegistrationRepository
 from app.registration.schemas import CancellationRead, RegistrationCreate, RegistrationRead
@@ -20,6 +22,7 @@ class RegistrationService:
         self.repository = repository or RegistrationRepository()
         self.event_repository = EventRepository()
         self.ticket_service = TicketService()
+        self.notification_service = NotificationService()
 
     def register(
         self, session: Session, event_id: uuid.UUID, data: RegistrationCreate
@@ -56,6 +59,19 @@ class RegistrationService:
                 if has_capacity:
                     registration.ticket = self.ticket_service.issue(session, registration.id)
                     session.flush()
+                    self.notification_service.enqueue(
+                        session,
+                        notification_type=NotificationType.REGISTRATION_CONFIRMED,
+                        event_id=event.id,
+                        registration_id=registration.id,
+                        recipient=registration.email,
+                        payload={
+                            "subject": f"Registration confirmed: {event.title}",
+                            "body": f"Your ticket code is {registration.ticket.code}.",
+                            "ticket_code": registration.ticket.code,
+                        },
+                        dedupe_key=f"registration-confirmed:{registration.id}",
+                    )
 
         session.refresh(registration)
         return registration
@@ -87,6 +103,20 @@ class RegistrationService:
                         promoted.status = RegistrationStatus.CONFIRMED
                         promoted.confirmed_at = now
                         promoted.ticket = self.ticket_service.issue(session, promoted.id)
+                        session.flush()
+                        self.notification_service.enqueue(
+                            session,
+                            notification_type=NotificationType.WAITLIST_PROMOTED,
+                            event_id=event.id,
+                            registration_id=promoted.id,
+                            recipient=promoted.email,
+                            payload={
+                                "subject": f"You have a seat: {event.title}",
+                                "body": f"Your ticket code is {promoted.ticket.code}.",
+                                "ticket_code": promoted.ticket.code,
+                            },
+                            dedupe_key=f"waitlist-promoted:{promoted.id}",
+                        )
                 session.flush()
 
         session.refresh(registration)

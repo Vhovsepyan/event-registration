@@ -2,6 +2,10 @@ from datetime import UTC, datetime, timedelta
 
 import httpx
 import pytest
+from sqlalchemy import Engine, select
+from sqlalchemy.orm import Session
+
+from app.notification.models import Notification, NotificationType
 
 pytestmark = pytest.mark.asyncio
 
@@ -32,7 +36,9 @@ async def cancel(
     return await client.post(f"/api/events/{event_id}/registrations/{registration_id}/cancel")
 
 
-async def test_confirmed_cancellation_promotes_first_waitlisted(client: httpx.AsyncClient) -> None:
+async def test_confirmed_cancellation_promotes_first_waitlisted(
+    client: httpx.AsyncClient, database_engine: Engine
+) -> None:
     event_id = await create_event(client)
     confirmed = await register(client, event_id, "confirmed@example.com")
     first = await register(client, event_id, "first@example.com")
@@ -58,6 +64,13 @@ async def test_confirmed_cancellation_promotes_first_waitlisted(client: httpx.As
     old_ticket = await client.get(f"/api/tickets/{original_ticket['code']}")
     assert old_ticket.json()["registration_status"] == "CANCELLED"
     assert old_ticket.json()["invalidated_at"] is not None
+
+    with Session(database_engine) as session:
+        promotion = session.scalar(
+            select(Notification).where(Notification.type == NotificationType.WAITLIST_PROMOTED)
+        )
+    assert promotion is not None
+    assert str(promotion.registration_id) == promoted["id"]
 
 
 async def test_repeated_cancellation_does_not_promote_again(client: httpx.AsyncClient) -> None:
