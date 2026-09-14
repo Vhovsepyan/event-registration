@@ -5,6 +5,9 @@ from sqlalchemy import engine_from_config, pool
 
 from app.common.config import get_settings
 from app.db.base import Base
+from app.db.models import Event
+
+_ = Event
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

@@ -741,12 +741,26 @@ Implement incrementally.
 
 Each task must:
 
+Each task must:
+
 1. implement only its scope
 2. run its relevant tests
-3. fix failures autonomously
+3. diagnose and fix failures autonomously
 4. run the existing full test suite
 5. self-review
-6. fix Critical/Important findings
-7. commit only after the task is green
+6. fix all Critical and Important findings
+7. rerun verification
+8. update the development log with timestamps
+9. commit the completed task with a focused commit message
+10. automatically proceed to the next task in the defined task order
 
-Do not automatically start the next task.
+Do not wait for user approval between tasks.
+
+Continue autonomously until all tasks in this implementation plan are completed.
+
+Stop only if:
+- there is a genuine external blocker that cannot be solved from the repository or machine environment
+- requirements are contradictory and require a product decision
+- completing the next task would require changing an explicit architecture decision
+
+Ordinary compile errors, test failures, dependency issues, migration problems, frontend errors, Docker issues that can be diagnosed locally, or application bugs are not reasons to stop. Diagnose and fix them autonomously.
