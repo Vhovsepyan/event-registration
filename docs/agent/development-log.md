@@ -142,3 +142,16 @@
 - Failures diagnosed: One test compared a PostgreSQL UUID to its JSON string representation; the assertion was corrected. Ruff normalized migration formatting.
 - Tests/checks: Outbox migration downgrade/upgrade; `alembic check` (no drift); Ruff lint/format; pytest (33 passed), including dedupe and fail-then-retry delivery; frontend lint, Vitest (2 passed), and build; default/test Compose validation; live Mailpit API HTTP 200; Git whitespace checks.
 - Self-review: Business commits contain durable intent but no SMTP calls, duplicate producers are database-safe, concurrent workers skip locked claims, crashed claims can age out, and failed sends return to pending with attempts/errors recorded. All task 0011 criteria pass with no remaining Critical or Important findings.
+
+## 2026-09-14T14:40:18+04:00 — Task 0012 started
+
+- Task: Confirmation and promotion emails
+- Agent/tool: OpenAI Codex using typed Python templates, transactional outbox services, SMTP/Mailpit, PostgreSQL, pytest, Ruff, Docker Compose, and Git
+- Prompt/reference: `docs/IMPLEMENTATION_PLAN.md` confirmation/promotion email requirements and `docs/tasks/0012-confirmation-and-promotion-emails.md`
+- Existing work: Durable outbox, worker, retry behavior, and Mailpit infrastructure from task 0011 are committed and green
+- Decisions: Keep rendering deterministic and plain-text; include event title, ISO scheduled time, and ticket code; expose producer-specific enqueue methods over the generic deduplicated primitive
+- Status: Completed at 2026-09-14T14:42:38+04:00
+- Result: Added deterministic confirmation/promotion templates and producer-specific outbox methods containing event, schedule, and ticket details. Verified the real worker delivered a confirmation through SMTP to Mailpit and the inbox API exposed the expected recipient/subject.
+- Failures diagnosed: A test compared equivalent UTC strings rendered as `Z` and `+00:00`; expected time is now normalized semantically. Live standalone-worker verification exposed an incomplete SQLAlchemy model registry; the worker now explicitly loads all database models before claiming ORM rows.
+- Tests/checks: `alembic check` (no drift); Ruff lint/format; pytest (34 passed) including both message types/content; frontend lint, Vitest (2 passed), and build; test-profile Compose validation; live Uvicorn registration → outbox worker → SMTP → Mailpit delivery (one message, expected subject/recipient); Git whitespace checks.
+- Self-review: Templates contain actionable event/time/ticket information, producer methods retain database dedupe, worker startup is independent of API imports, and actual local delivery is proven. All task 0012 criteria pass with no remaining Critical or Important findings.

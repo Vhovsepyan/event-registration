@@ -9,8 +9,11 @@ from sqlalchemy import or_, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.common.config import Settings, get_settings
+from app.db import models as database_models
 from app.db.session import SessionLocal
 from app.notification.models import Notification, NotificationStatus
+
+_ = database_models
 
 
 class Mailer(Protocol):
