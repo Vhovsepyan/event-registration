@@ -1,5 +1,6 @@
 from functools import lru_cache
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -8,6 +9,7 @@ class Settings(BaseSettings):
 
     app_name: str = "Event Registration API"
     environment: str = "development"
+    sse_poll_interval_seconds: float = Field(default=1.0, gt=0)
     database_url: str = (
         "postgresql+psycopg://event_registration:event_registration@localhost:5432/"
         "event_registration"

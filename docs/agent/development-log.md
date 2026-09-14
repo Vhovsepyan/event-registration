@@ -116,3 +116,16 @@
 - Failures diagnosed: Initial implementation used separate aggregate statements; self-review identified possible mixed snapshots under READ COMMITTED. All values now come from one SQL statement and one database snapshot.
 - Tests/checks: `alembic check` (no drift); Ruff lint/format; pytest (29 passed) against PostgreSQL; frontend lint, Vitest (2 passed), and build; test-profile Compose validation; Git whitespace checks.
 - Self-review: No counters are duplicated, cancelled registrations/invalidated tickets cannot inflate results, and one-statement evaluation makes each response internally consistent. All task 0009 criteria pass with no remaining Critical or Important findings.
+
+## 2026-09-14T14:33:10+04:00 — Task 0010 started
+
+- Task: SSE live dashboard
+- Agent/tool: OpenAI Codex using FastAPI StreamingResponse, asyncio, SQLAlchemy/PostgreSQL polling, pytest/httpx, Ruff, Docker Compose, and Git
+- Prompt/reference: `docs/IMPLEMENTATION_PLAN.md` live-update rules and `docs/tasks/0010-sse-live-dashboard.md`
+- Existing work: One-statement authoritative statistics endpoint from task 0009 is committed and green
+- Decisions: Use native SSE with change-only PostgreSQL polling, one short-lived session per read, and one independent generator per client; avoid WebSockets and external pub/sub
+- Status: Completed at 2026-09-14T14:34:45+04:00
+- Result: Added the SSE statistics stream endpoint, change-only event encoding, configurable polling, per-snapshot short-lived sessions, disconnect handling, cache/buffering headers, and tests for endpoint format plus two independent clients observing one update.
+- Failures diagnosed: Ruff normalized imports. Self-review identified a potential busy loop from a nonpositive configured poll interval; Pydantic now rejects such configuration.
+- Tests/checks: `alembic check` (no drift); Ruff lint/format; pytest (31 passed), including dual-stream SSE tests against PostgreSQL; frontend lint, Vitest (2 passed), and build; test-profile Compose validation; Git whitespace checks.
+- Self-review: Streaming uses native SSE, database reads execute off the event loop with a fresh session per snapshot, only changes emit, and no external pub/sub infrastructure was added. All task 0010 criteria pass with no remaining Critical or Important findings.

@@ -1,8 +1,10 @@
+import asyncio
 import uuid
+from collections.abc import AsyncIterator, Awaitable, Callable
 
 from pydantic import BaseModel
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, sessionmaker
 
 from app.common.errors import ResourceNotFoundError
 from app.event.models import Event
@@ -68,3 +70,22 @@ class OrganizerService:
             waitlisted=row.waitlisted,
             checked_in=row.checked_in,
         )
+
+    async def stats_events(
+        self,
+        event_id: uuid.UUID,
+        session_factory: sessionmaker[Session],
+        is_disconnected: Callable[[], Awaitable[bool]],
+        poll_interval: float,
+    ) -> AsyncIterator[str]:
+        previous: str | None = None
+        while not await is_disconnected():
+            snapshot = await asyncio.to_thread(self._serialized_stats, session_factory, event_id)
+            if snapshot != previous:
+                yield f"event: stats\ndata: {snapshot}\n\n"
+                previous = snapshot
+            await asyncio.sleep(poll_interval)
+
+    def _serialized_stats(self, session_factory: sessionmaker[Session], event_id: uuid.UUID) -> str:
+        with session_factory() as session:
+            return self.get_stats(session, event_id).model_dump_json()
