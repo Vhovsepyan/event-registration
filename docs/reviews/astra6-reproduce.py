@@ -86,7 +86,8 @@ def reschedule_revisit():
             rows = list(session.scalars(select(Notification).where(
                 Notification.type == NotificationType.EVENT_RESCHEDULED
             )))
-        assert len(rows) == 2
+        # Task 0019: every actual change now notifies the active participant.
+        assert len(rows) == 3
         return {"actual_schedule_changes": 3, "expected_notifications": 3, "actual_notifications": len(rows)}
 
 

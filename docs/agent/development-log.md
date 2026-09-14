@@ -243,3 +243,16 @@
 - Verification: Backend 46 passed; frontend 11 passed; Playwright 2 passed; backend/frontend lint, backend format, frontend build, and empty-test-database Alembic upgrade through 0007 plus drift check passed. Five isolated PostgreSQL diagnostic cases reproduced the four defects.
 - Environment: Started only the isolated PostgreSQL test service; used port 5434 for tests, migration and browser proof. Pytest reported a cache permission warning; the initial browser run was blocked by uv cache access and the approved rerun passed.
 - Artifacts: `docs/reviews/2026-09-14-astra6-review.md`, `docs/reviews/astra6-reproduce.py`, and OPEN specifications in `docs/tasks/0019` through `0022` (full filenames linked from the review). Review tasks remain unimplemented.
+
+## 2026-09-14T17:55:34+04:00 — Task 0019 started
+
+- Task: P1: Notify participants on every actual reschedule
+- Agent/tool: Claude Code (Claude Opus 5) using FastAPI, SQLAlchemy/Alembic, PostgreSQL row locking, pytest/httpx, Ruff, Vitest, and Git
+- Prompt/reference: `docs/prompts/0019-reschedule-notification-revisions.md`, `docs/tasks/0019-reschedule-notification-revisions.md`, and `docs/reviews/2026-09-14-astra6-review.md`
+- Existing work: Tasks 0001–0018 are committed and green (46 backend, 11 frontend, 2 Playwright); the review reproduction showed A → B → A → B creating two reschedule rows instead of three
+- Decisions: Persist `events.schedule_revision` and increment it under the existing Event row lock only when the requested instant differs; key reschedule rows by revision and reminders by scheduled time plus revision; leave historical rows and their keys untouched; record the identity change in decision 0019 and correct task/decision 0014 rather than silently diverging from them
+- Status: Completed at 2026-09-14T17:59:11+04:00
+- Result: Every actual schedule change now creates one reschedule outbox row per confirmed and waitlisted participant, including repeated transitions and revisited dates; equivalent timezone representations of the current instant are no-ops; a failing notification enqueue rolls the schedule and revision back together. `EventRead` exposes `schedule_revision` and migration `20260914_0008` adds the column with default 0.
+- Failures diagnosed: A scripted edit rewrote four source files with CRLF endings on Windows and truncated a decision file through a cp1252 encode error; the files were normalized to LF, the decision restored from Git, and the edits redone with explicit UTF-8. New tests initially failed Ruff for missing imports, which were added.
+- Tests/checks: Ruff lint/format; empty test-database migration from base through `20260914_0008`, `alembic check` (no drift), and `0008` downgrade/upgrade; backend pytest (50 passed, including four new reschedule regression tests); review script case `reschedule_revisit` now reports 3 changes and 3 notifications; Vitest (11 passed); Git whitespace check.
+- Self-review: The revision changes only inside the locked reschedule transaction, both active statuses receive a row for each of three changes with revisions 1–3 and correct old/new times, cancelled participants receive nothing, a same-instant PATCH in UTC and +04:00 leaves revision 0 and creates no rows, and the reminder identity distinguishes a revisited date. No Critical or Important findings remain.

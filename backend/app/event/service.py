@@ -38,6 +38,7 @@ class EventService:
             old_starts_at: datetime = event.starts_at
             if old_starts_at != data.starts_at:
                 event.starts_at = data.starts_at
+                event.schedule_revision += 1
                 participants = self.registration_repository.list_active(session, event_id)
                 for registration in participants:
                     self.notification_service.enqueue_event_rescheduled(

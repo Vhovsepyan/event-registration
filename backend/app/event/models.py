@@ -19,6 +19,9 @@ class Event(Base):
     description: Mapped[str] = mapped_column(Text, nullable=False, default="")
     starts_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     capacity: Mapped[int] = mapped_column(Integer, nullable=False)
+    schedule_revision: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

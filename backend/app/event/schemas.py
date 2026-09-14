@@ -34,6 +34,7 @@ class EventRead(BaseModel):
     description: str
     starts_at: datetime
     capacity: int
+    schedule_revision: int
     created_at: datetime
     updated_at: datetime
 

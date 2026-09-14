@@ -11,7 +11,8 @@ Allow organizers to change an event's future start time and durably notify every
 - Lock the Event row and update it with notification creation in one transaction.
 - Notify both confirmed and waitlisted registrations; exclude cancelled registrations.
 - Include old/new schedule details in email payloads.
-- Dedupe by event, registration, and new scheduled time.
+- Dedupe by event, registration, and schedule revision (corrected by task 0019; the original
+  new-scheduled-time key silently dropped a revisited date).
 - Prove a changed schedule creates a distinct reminder identity.
 
 ## Out of scope
@@ -22,8 +23,10 @@ Allow organizers to change an event's future start time and durably notify every
 ## Acceptance criteria
 
 1. PATCH persists and returns the new future start time.
-2. One reschedule outbox row is created for every active confirmed/waitlisted participant.
+2. One reschedule outbox row is created for every active confirmed/waitlisted participant and
+   every actual schedule change, including a return to a previously used date.
 3. Cancelled participants receive no reschedule row.
-4. Repeating the same time creates no notifications.
+4. Repeating the current instant, in any timezone representation, creates no revision and no
+   notifications.
 5. A new schedule can generate a new reminder despite an old-schedule reminder.
 6. All changes are transactional and full verification is green.

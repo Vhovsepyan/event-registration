@@ -109,8 +109,12 @@ class NotificationService:
                 "body": content.body,
                 "ticket_code": ticket.code,
                 "starts_at": event.starts_at.isoformat(),
+                "schedule_revision": event.schedule_revision,
             },
-            dedupe_key=f"event-reminder:{event.id}:{registration.id}:{event.starts_at.isoformat()}",
+            dedupe_key=(
+                f"event-reminder:{event.id}:{registration.id}:"
+                f"{event.starts_at.isoformat()}:r{event.schedule_revision}"
+            ),
         )
 
     def enqueue_event_rescheduled(
@@ -135,9 +139,12 @@ class NotificationService:
                 "body": content.body,
                 "old_starts_at": old_value,
                 "new_starts_at": new_value,
+                "schedule_revision": event.schedule_revision,
                 "registration_status": registration.status.value,
             },
-            dedupe_key=f"event-rescheduled:{event.id}:{registration.id}:{new_value}",
+            dedupe_key=(
+                f"event-rescheduled:{event.id}:{registration.id}:r{event.schedule_revision}"
+            ),
         )
 
 
