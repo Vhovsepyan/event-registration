@@ -743,6 +743,8 @@ Implement incrementally.
 0020 — P1: Suppress queued reminders after cancellation or rescheduling
 0021 — P1: Prevent failing messages from starving the outbox
 0022 — P1: Keep live worker claims from expiring during a batch
+0023 — P2: Never let an older HTTP snapshot replace a newer SSE snapshot
+0024 — P2: Release the SSE route's preliminary database session before streaming
 
 Each task must:
 

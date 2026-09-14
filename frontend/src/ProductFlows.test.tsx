@@ -260,4 +260,45 @@ describe('product flows', () => {
     await waitFor(() => expect(within(stats).getByText('4')).toBeVisible())
     expect(screen.getByText('Live')).toBeVisible()
   })
+
+  it('does not let a late initial HTTP snapshot replace a newer SSE snapshot', async () => {
+    let statsListener: ((event: MessageEvent<string>) => void) | undefined
+    class MockEventSource {
+      onerror: (() => void) | null = null
+      addEventListener(type: string, listener: EventListener) {
+        if (type === 'stats') statsListener = listener as (event: MessageEvent<string>) => void
+      }
+      close() {}
+    }
+    vi.stubGlobal('EventSource', MockEventSource)
+    let resolveStats: (value: Response) => void = () => {}
+    const delayedStats = new Promise<Response>((resolve) => {
+      resolveStats = resolve
+    })
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) =>
+        url.endsWith('/stats') ? delayedStats : Promise.resolve(response(EVENT)),
+      ),
+    )
+
+    renderAt('/events/event-1/organizer')
+    await waitFor(() => expect(statsListener).toBeDefined())
+    act(() => {
+      statsListener?.(
+        new MessageEvent('stats', { data: JSON.stringify({ ...STATS, checked_in: 4 }) }),
+      )
+    })
+    const stats = await screen.findByLabelText('Event statistics')
+    expect(within(stats).getByLabelText('Checked in: 4')).toBeVisible()
+
+    // The stale HTTP snapshot (checked_in: 3) arrives only now, after the live value.
+    await act(async () => {
+      resolveStats(response(STATS))
+    })
+
+    expect(await screen.findByRole('heading', { name: EVENT.title })).toBeVisible()
+    expect(within(stats).getByLabelText('Checked in: 4')).toBeVisible()
+    expect(within(stats).queryByLabelText('Checked in: 3')).toBeNull()
+  })
 })

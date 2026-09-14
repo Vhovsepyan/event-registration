@@ -295,3 +295,16 @@
 - Failures diagnosed: The review script's simulated clock started at wall time, before the reminders generated inside the cycle received their database-side `next_attempt_at`, so nothing was due; the script now starts its clock two seconds ahead, matching the new tests. A `noqa` on the ownership-update helper was replaced with SQLAlchemy's `Update` return type.
 - Tests/checks: Ruff lint/format; empty test database migrated to `20260914_0011`, `alembic check` (no drift), `0011` downgrade/upgrade; development database upgraded to `0011`; backend pytest (70 passed, including six new ownership tests); focused invariant tests (16 passed); complete review reproduction script (five cases corrected); Oxlint; Vitest (11 passed); TypeScript/Vite build; Playwright (2 passed) with ports released; Git whitespace check. Recorded in `docs/demo/final-verification.md`.
 - Self-review: Every claim is a per-attempt snapshot with its own token, the only path to `SENT`/`FAILED`/`PENDING`-with-backoff from `PROCESSING` is ownership-conditioned, reminder re-verification still happens inside the claim transaction, cycles remain bounded by the batch size, crash recovery is unchanged, and the honest double-delivery outcome is tested rather than hidden. No Critical or Important findings remain; tasks 0019–0022 from the implementation plan are complete.
+
+## 2026-09-14T18:31:44+04:00 — Task 0023 started
+
+- Task: P2: Never let an older HTTP snapshot replace a newer SSE snapshot
+- Agent/tool: Claude Code (Claude Opus 5) using React/TypeScript, Testing Library/Vitest, Oxlint, Vite, Playwright, and Git
+- Prompt/reference: `docs/prompts/0023-organizer-snapshot-ordering.md`, `docs/tasks/0023-organizer-snapshot-ordering.md`, and the "Other observations" section of `docs/reviews/2026-09-14-astra6-review.md`; the user asked for tasks 0023/0024 to be created, added to `docs/IMPLEMENTATION_PLAN.md`, and completed under the existing rules
+- Existing work: Tasks 0001–0022 committed; the organizer page applied both the initial HTTP statistics response and SSE snapshots through the same setter with no ordering rule
+- Decisions: Keep the HTTP snapshot as the pre-connection fallback but make SSE authoritative once any live snapshot has been applied, tracked with an effect-local flag; no server-side sequence numbers because the change-only stream already re-emits anything newer than its last snapshot
+- Status: Completed at 2026-09-14T18:34:31+04:00
+- Result: A late-resolving initial HTTP statistics response can no longer overwrite live counts; event details still render regardless of ordering.
+- Failures diagnosed: None in implementation. The new component test was run against the previous page implementation to confirm it fails (stale checked-in count rendered) before being accepted.
+- Tests/checks: Vitest (12 passed, including the new delayed-response test); Oxlint; TypeScript/Vite production build; Playwright two-context proof and cancellation/re-registration scenario (2 passed) with ports released; Git whitespace check.
+- Self-review: Every acceptance criterion in the task is covered by a test or an unchanged existing test; the fix is confined to the organizer effect and no API or backend behavior changed. No Critical or Important findings remain.

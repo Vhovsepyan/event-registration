@@ -15,11 +15,14 @@ export function OrganizerPage() {
 
   useEffect(() => {
     let active = true
+    // The stream only emits changes relative to what it already sent, so a live snapshot must
+    // never be replaced by the initial HTTP response if that response happens to resolve later.
+    let liveSnapshotApplied = false
     Promise.all([api.getEvent(eventId), api.getStats(eventId)])
       .then(([eventData, statsData]) => {
         if (active) {
           setEvent(eventData)
-          setStats(statsData)
+          if (!liveSnapshotApplied) setStats(statsData)
         }
       })
       .catch((caught) => active && setError(errorMessage(caught)))
@@ -27,6 +30,7 @@ export function OrganizerPage() {
     const stream = new EventSource(statsStreamUrl(eventId))
     const update = (message: MessageEvent<string>) => {
       if (active) {
+        liveSnapshotApplied = true
         setStats(JSON.parse(message.data) as EventStats)
         setLive(true)
       }
