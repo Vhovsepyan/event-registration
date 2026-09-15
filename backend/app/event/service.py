@@ -1,12 +1,12 @@
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy.orm import Session
 
 from app.common.errors import ResourceNotFoundError
 from app.event.models import Event
 from app.event.repository import EventRepository
-from app.event.schemas import EventCreate, EventReschedule
+from app.event.schemas import EventCreate, EventRead, EventReschedule, EventSummary
 from app.notification.service import NotificationService
 from app.registration.repository import RegistrationRepository
 
@@ -23,6 +23,20 @@ class EventService:
         session.commit()
         session.refresh(event)
         return event
+
+    def list(self, session: Session, *, include_past: bool = False) -> list[EventSummary]:
+        rows = self.repository.list_with_counts(
+            session, now=datetime.now(UTC), include_past=include_past
+        )
+        return [
+            EventSummary(
+                **EventRead.model_validate(event).model_dump(),
+                confirmed=confirmed,
+                waitlisted=waitlisted,
+                seats_left=max(event.capacity - confirmed, 0),
+            )
+            for event, confirmed, waitlisted in rows
+        ]
 
     def get(self, session: Session, event_id: uuid.UUID) -> Event:
         event = self.repository.get(session, event_id)

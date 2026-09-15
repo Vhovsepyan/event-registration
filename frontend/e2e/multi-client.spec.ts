@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test'
 test('check-in in browser B updates the live dashboard in browser A', async ({ browser, page }) => {
   const unique = `${Date.now()}-${Math.random().toString(16).slice(2)}`
 
-  await page.goto('/')
+  await page.goto('/organizer')
   await page.getByLabel('Event title').fill(`Live update ${unique}`)
   await page.getByLabel('Description').fill('Two-client Playwright verification')
   await page.getByLabel('Date and time').fill('2035-10-12T14:00')
@@ -39,7 +39,7 @@ test('participant cancels, reregisters, and receives a fresh valid ticket', asyn
   const unique = `${Date.now()}-${Math.random().toString(16).slice(2)}`
   const email = `repeat-${unique}@example.com`
 
-  await page.goto('/')
+  await page.goto('/organizer')
   await page.getByLabel('Event title').fill(`Cancellation ${unique}`)
   await page.getByLabel('Description').fill('Participant cancellation verification')
   await page.getByLabel('Date and time').fill('2035-10-12T14:00')

@@ -114,7 +114,8 @@ Open `http://localhost:5173`. Mailpit's inbox is at `http://localhost:8025`. The
 
 ## Product routes
 
-- `/` — create an event
+- `/` — participant home: upcoming events with seats left or waiting-list size
+- `/organizer` — organizer area: create an event and open any event's dashboard
 - `/events/{event_id}` — event details, participant registration, cancellation, and re-registration
 - `/events/{event_id}/organizer` — live organizer dashboard and rescheduling
 - `/tickets/{ticket_code}` — ticket details and status
@@ -154,7 +155,7 @@ npm test -- --run
 npm run build
 ```
 
-Two-browser live-update proof (development PostgreSQL must be migrated and reachable through `DATABASE_URL`):
+Two-browser live-update proof (development PostgreSQL must be migrated and reachable through `DATABASE_URL`; Playwright starts its own API and Vite servers on ports 8000/5173, or set `PLAYWRIGHT_REUSE_SERVERS=1` to run against the ones you already have running):
 
 ```powershell
 cd frontend
@@ -165,7 +166,7 @@ See [the multi-client verification](docs/demo/multi-client-verification.md) for 
 
 ## API summary
 
-- `POST /api/events`; `GET/PATCH /api/events/{event_id}`
+- `GET /api/events[?include_past=true]` (upcoming events with confirmed/waitlisted counts and seats left); `POST /api/events`; `GET/PATCH /api/events/{event_id}`
 - `POST /api/events/{event_id}/registrations`
 - `POST /api/events/{event_id}/registrations/{registration_id}/cancel`
 - `GET /api/tickets/{code}`; `POST /api/check-ins`

@@ -8,6 +8,12 @@ export type EventRecord = {
   updated_at: string
 }
 
+export type EventSummary = EventRecord & {
+  confirmed: number
+  waitlisted: number
+  seats_left: number
+}
+
 export type Ticket = {
   id: string
   registration_id: string

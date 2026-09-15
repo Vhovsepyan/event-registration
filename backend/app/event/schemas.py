@@ -45,6 +45,12 @@ class EventRead(BaseModel):
     updated_at: datetime
 
 
+class EventSummary(EventRead):
+    confirmed: int
+    waitlisted: int
+    seats_left: int
+
+
 class EventReschedule(BaseModel):
     starts_at: AwareDatetime
 

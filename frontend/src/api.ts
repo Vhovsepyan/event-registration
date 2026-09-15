@@ -3,6 +3,7 @@ import type {
   CheckInResponse,
   EventRecord,
   EventStats,
+  EventSummary,
   Registration,
   TicketDetails,
 } from './types'
@@ -44,6 +45,8 @@ export const api = {
     starts_at: string
     capacity: number
   }) => request<EventRecord>('/api/events', { method: 'POST', body: JSON.stringify(data) }),
+  listEvents: (includePast = false) =>
+    request<EventSummary[]>(`/api/events${includePast ? '?include_past=true' : ''}`),
   getEvent: (eventId: string) => request<EventRecord>(`/api/events/${eventId}`),
   rescheduleEvent: (eventId: string, startsAt: string) =>
     request<EventRecord>(`/api/events/${eventId}`, {

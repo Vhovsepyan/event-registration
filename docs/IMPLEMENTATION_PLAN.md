@@ -748,6 +748,8 @@ Implement incrementally.
 0025 — Worker robustness and delivery correctness
 0026 — Input and safety bounds
 0027 — Documentation, provenance, and organizer error isolation
+0028 — Event discovery by role
+0029 — Registration self-service and waitlist email
 
 Each task must:
 

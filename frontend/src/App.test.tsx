@@ -1,6 +1,6 @@
 import { cleanup, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import App from './App'
 
@@ -15,8 +15,16 @@ function renderAt(path: string) {
 }
 
 describe('application routing', () => {
-  it('renders event creation at the root route', () => {
+  it('renders the participant event list at the root route', () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('[]', { status: 200 })))
     renderAt('/')
+
+    expect(screen.getByRole('heading', { name: 'Upcoming events' })).toBeVisible()
+  })
+
+  it('renders event creation in the organizer area', () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('[]', { status: 200 })))
+    renderAt('/organizer')
 
     expect(screen.getByRole('heading', { name: 'Create an event' })).toBeVisible()
   })

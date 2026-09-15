@@ -1,7 +1,7 @@
 # Product demo script
 
-1. Open `http://localhost:5173` and create a future event with capacity 1. Keep the organizer dashboard open so its live counts remain visible throughout the demo.
-2. Open the dashboard's **Participant page** link in a second browser/private window. Register `first@example.com`, show **Confirmed**, and record its ticket as the old ticket.
+1. Open `http://localhost:5173/organizer` and create a future event with capacity 1. Keep the organizer dashboard open so its live counts remain visible throughout the demo. (The **Organizer** area also lists every event with a link back to its dashboard.)
+2. In a second browser/private window open `http://localhost:5173`, find the event in **Upcoming events**, and choose **Register**. Register `first@example.com`, show **Confirmed**, and record its ticket as the old ticket.
 3. Open the participant link in another isolated tab/window, register `second@example.com`, and show **Waiting list**. The organizer dashboard changes to `1 confirmed / 1 waiting` without refresh.
 4. On the first participant result, choose **Cancel participation**, decline the confirmation once to show that nothing changes, then choose it again and confirm. Show **Your participation is cancelled**, the message that the previous ticket is no longer active, and the absence of an active ticket link.
 5. Show the automatic FIFO result: `second@example.com` is promoted, and the organizer dashboard changes to `1 confirmed / 0 waiting`. Run the notification worker and show the promotion email and newly issued ticket in Mailpit at `http://localhost:8025`.

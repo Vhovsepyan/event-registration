@@ -4,7 +4,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import App from './App'
-import type { EventRecord, EventStats, Registration } from './types'
+import type { EventRecord, EventStats, EventSummary, Registration } from './types'
 
 const EVENT: EventRecord = {
   id: 'event-1',
@@ -300,6 +300,41 @@ describe('product flows', () => {
     expect(await screen.findByRole('heading', { name: EVENT.title })).toBeVisible()
     expect(within(stats).getByLabelText('Checked in: 4')).toBeVisible()
     expect(within(stats).queryByLabelText('Checked in: 3')).toBeNull()
+  })
+
+  it('lists upcoming events for participants with availability and registration links', async () => {
+    const full: EventSummary = { ...EVENT, id: 'event-2', title: 'Sold out', confirmed: 20, waitlisted: 3, seats_left: 0 }
+    const open: EventSummary = { ...EVENT, confirmed: 7, waitlisted: 0, seats_left: 13 }
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response([open, full])))
+
+    renderAt('/')
+
+    const list = await screen.findByRole('list', { name: 'Upcoming events' })
+    expect(within(list).getByText('13 of 20 seats left')).toBeVisible()
+    expect(within(list).getByText('Full · 3 waiting')).toBeVisible()
+    expect(within(list).getByRole('link', { name: 'Register' })).toHaveAttribute('href', '/events/event-1')
+    expect(within(list).getByRole('link', { name: 'Join waiting list' })).toHaveAttribute('href', '/events/event-2')
+  })
+
+  it('shows an empty state when nothing is scheduled', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response([])))
+
+    renderAt('/')
+
+    expect(await screen.findByText(/No upcoming events yet/)).toBeVisible()
+  })
+
+  it('lists every event with counts and dashboard links in the organizer area', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(response([{ ...EVENT, confirmed: 7, waitlisted: 2, seats_left: 13 }]))
+    vi.stubGlobal('fetch', fetchMock)
+
+    renderAt('/organizer')
+
+    const list = await screen.findByRole('list', { name: 'Your events' })
+    expect(within(list).getByText('7 confirmed · 2 waiting · capacity 20')).toBeVisible()
+    expect(within(list).getByRole('link', { name: 'Open dashboard' })).toHaveAttribute('href', '/events/event-1/organizer')
+    expect(String(fetchMock.mock.calls[0][0])).toContain('/api/events?include_past=true')
+    expect(screen.getByRole('heading', { name: 'Create an event' })).toBeVisible()
   })
 
   it.each([

@@ -4,6 +4,7 @@ import './App.css'
 import { CheckInPage } from './pages/CheckInPage'
 import { CreateEventPage } from './pages/CreateEventPage'
 import { EventPage } from './pages/EventPage'
+import { EventsPage } from './pages/EventsPage'
 import { OrganizerPage } from './pages/OrganizerPage'
 import { TicketPage } from './pages/TicketPage'
 
@@ -28,13 +29,15 @@ export default function App() {
           <span aria-hidden="true">E·R</span> Event Registration
         </Link>
         <nav aria-label="Primary navigation">
-          <Link to="/">Create event</Link>
+          <Link to="/">Events</Link>
+          <Link to="/organizer">Organizer</Link>
           <Link to="/check-in">Check in</Link>
         </nav>
       </header>
       <main className="page-content">
         <Routes>
-          <Route path="/" element={<CreateEventPage />} />
+          <Route path="/" element={<EventsPage />} />
+          <Route path="/organizer" element={<CreateEventPage />} />
           <Route path="/events/:eventId" element={<EventPage />} />
           <Route path="/events/:eventId/organizer" element={<OrganizerPage />} />
           <Route path="/tickets/:code" element={<TicketPage />} />

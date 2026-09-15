@@ -21,8 +21,8 @@ The default browser channel is installed Microsoft Edge. Set `PLAYWRIGHT_CHANNEL
 ## Manual equivalent
 
 1. Start PostgreSQL, migrate, and run the backend and frontend.
-2. Create an event and leave its organizer dashboard open in browser A.
-3. Open the dashboard's participant link in browser B and register.
+2. Create an event from `/organizer` and leave its organizer dashboard open in browser A.
+3. In browser B open `/`, choose the event from **Upcoming events**, and register.
 4. Copy the issued ticket code, open **Check in** in browser B, and submit it.
 5. Confirm browser B shows **Check-in successful**.
 6. Without refreshing browser A, confirm its **Checked in** statistic changes from 0 to 1 and its connection indicator reads **Live**.

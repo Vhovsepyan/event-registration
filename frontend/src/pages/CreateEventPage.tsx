@@ -1,13 +1,21 @@
-import { type FormEvent, useState } from 'react'
+import { type FormEvent, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { api } from '../api'
+import { EventList } from '../components/EventList'
 import { errorMessage } from '../format'
+import type { EventSummary } from '../types'
 
 export function CreateEventPage() {
   const navigate = useNavigate()
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [events, setEvents] = useState<EventSummary[] | null>(null)
+  const [listError, setListError] = useState('')
+
+  useEffect(() => {
+    api.listEvents(true).then(setEvents).catch((caught) => setListError(errorMessage(caught)))
+  }, [])
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -56,6 +64,17 @@ export function CreateEventPage() {
         {error && <p className="notice notice--error" role="alert">{error}</p>}
         <button className="button" disabled={submitting}>{submitting ? 'Creating…' : 'Create event'}</button>
       </form>
+      <section className="organizer-events" aria-labelledby="your-events-heading">
+        <h2 id="your-events-heading">Your events</h2>
+        {events ? (
+          <EventList
+            events={events}
+            audience="organizer"
+            emptyMessage="No events yet. Create the first one above."
+          />
+        ) : !listError && <p className="loading" role="status">Loading events…</p>}
+        {listError && <p className="notice notice--error" role="alert">{listError}</p>}
+      </section>
     </section>
   )
 }
