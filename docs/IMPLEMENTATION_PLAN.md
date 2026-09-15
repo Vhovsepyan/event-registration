@@ -745,6 +745,9 @@ Implement incrementally.
 0022 — P1: Keep live worker claims from expiring during a batch
 0023 — P2: Never let an older HTTP snapshot replace a newer SSE snapshot
 0024 — P2: Release the SSE route's preliminary database session before streaming
+0025 — Worker robustness and delivery correctness
+0026 — Input and safety bounds
+0027 — Documentation, provenance, and organizer error isolation
 
 Each task must:
 

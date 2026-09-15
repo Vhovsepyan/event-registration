@@ -15,7 +15,7 @@ PostgreSQL event-row locks serialize registration, cancellation, promotion, and 
 - Authentication and authorization are intentionally not implemented. Organizer, rescheduling, and staff check-in routes must not be exposed publicly as-is; participant cancellation also relies on possession of event and registration identifiers.
 - Participant state is held in the current browser flow. There is no authenticated participant account or recovery/list endpoint after a page refresh.
 - SMTP delivery is at-least-once at the transport boundary. Each outbox row is claimed with an ownership token immediately before its own send, so a slow batch cannot be resent by a second worker and a stale owner cannot overwrite a newer claim; but if the worker crashes after SMTP accepts a message, or a single SMTP call outlives the claim lease, before the row is marked `SENT`, the row is reclaimed and the recipient can receive a duplicate.
-- Queued reminders are suppressed when a participant cancels or the event is rescheduled, and re-verified when the worker claims them. A cancellation or reschedule that commits after that verification and before SMTP accepts the message cannot recall it (see `docs/decisions/0020-reminder-suppression.md`).
+- Queued reminders, confirmations, and promotions are suppressed when a participant cancels, queued reminders are suppressed when the event is rescheduled or has already started, and a burst of reschedules delivers only the latest notice per participant; reminders are re-verified when the worker claims them. A cancellation or reschedule that commits after that verification and before SMTP accepts the message cannot recall it (see `docs/decisions/0020-reminder-suppression.md`).
 - Mailpit and the included configuration are for local development, not production deployment.
 - The API has no rate limiting or abuse controls.
 - Outbox rows that fail permanently or exhaust their retries stay `FAILED` until an operator runs the `retry-failed` command; there is no alerting for them beyond the database state.
@@ -88,7 +88,7 @@ cd backend
 uv run python -m app.notification.worker
 ```
 
-Transient SMTP failures are retried with exponential backoff (`NOTIFICATION_RETRY_BASE_SECONDS`, `NOTIFICATION_RETRY_MAX_SECONDS`); a row that fails permanently or exhausts `NOTIFICATION_MAX_ATTEMPTS` is kept as `FAILED` with its error. To give failed rows one more delivery cycle:
+The worker survives transient database or network failures by logging the failed cycle and retrying with backoff. Transient SMTP failures (4yz replies, connection errors) are retried with exponential backoff (`NOTIFICATION_RETRY_BASE_SECONDS`, `NOTIFICATION_RETRY_MAX_SECONDS`); a row that fails permanently or exhausts `NOTIFICATION_MAX_ATTEMPTS` is kept as `FAILED` with its error. To give failed rows one more delivery cycle:
 
 ```powershell
 uv run python -m app.notification.worker retry-failed

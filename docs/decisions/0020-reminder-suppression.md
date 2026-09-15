@@ -13,7 +13,9 @@ Reminder intent is checked three times, and obsolete intent ends in an auditable
 
 1. **Generation** share-locks the due Event rows (`SELECT ... FOR SHARE`) before selecting confirmed, ticketed registrations. Registration, cancellation, promotion, and rescheduling all take the Event row `FOR UPDATE`, so generation and those changes serialize on the same lock: generation that waits sees the committed new state, and a change that waits sees the committed generated rows and suppresses them.
 2. **Business transactions** mark `PENDING` reminders `SUPPRESSED` in the same transaction that cancels a registration (`registration cancelled`) or moves an event (`event rescheduled to revision N`). Each outbox row stores the `schedule_revision` it was generated for.
-3. **Dispatch** re-verifies every claimed reminder against current state (event revision unchanged, registration still `CONFIRMED`, ticket not invalidated) inside the claim transaction and suppresses it with a `before delivery` reason if anything changed.
+3. **Dispatch** re-verifies every claimed reminder against current state (event revision unchanged, event not yet started, registration still `CONFIRMED`, ticket not invalidated) inside the claim transaction and suppresses it with a `before delivery` reason if anything changed.
+
+Since task 0025 cancellation also suppresses the registration's still-unsent confirmation and promotion rows, so a participant who cancels before the worker runs does not receive mail describing a ticket that is already invalid.
 
 `SUPPRESSED` is terminal. Rows keep their payload, dedupe key, `suppressed_at`, and `suppression_reason` for audit, and they never retry.
 

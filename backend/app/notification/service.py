@@ -131,6 +131,17 @@ class NotificationService:
         old_value = old_starts_at.isoformat()
         new_value = event.starts_at.isoformat()
         content = event_rescheduled_email(event, old_value, new_value)
+        # Every actual change is recorded, but only the latest unsent notice is delivered: an
+        # older PENDING notice would describe a schedule that is already out of date, and
+        # bounding delivery to one email per worker cycle keeps an unauthenticated PATCH loop
+        # from amplifying into unbounded outbound mail (decision 0003).
+        self.suppress_pending(
+            session,
+            notification_types=(NotificationType.EVENT_RESCHEDULED,),
+            reason=f"superseded by schedule revision {event.schedule_revision}",
+            event_id=event.id,
+            registration_id=registration.id,
+        )
         self.enqueue(
             session,
             notification_type=NotificationType.EVENT_RESCHEDULED,
@@ -151,15 +162,16 @@ class NotificationService:
             schedule_revision=event.schedule_revision,
         )
 
-    def suppress_pending_reminders(
+    def suppress_pending(
         self,
         session: Session,
         *,
+        notification_types: tuple[NotificationType, ...],
         reason: str,
         event_id: uuid.UUID | None = None,
         registration_id: uuid.UUID | None = None,
     ) -> int:
-        """Retire unsent reminders whose intent no longer applies.
+        """Retire unsent rows whose intent no longer applies.
 
         Only PENDING rows are touched: a PROCESSING row is owned by a worker that already
         verified it and is handing it to SMTP, which cannot be recalled.
@@ -169,7 +181,7 @@ class NotificationService:
         statement = (
             update(Notification)
             .where(
-                Notification.type == NotificationType.EVENT_REMINDER,
+                Notification.type.in_(notification_types),
                 Notification.status == NotificationStatus.PENDING,
             )
             .values(
@@ -184,6 +196,38 @@ class NotificationService:
         if registration_id is not None:
             statement = statement.where(Notification.registration_id == registration_id)
         return session.execute(statement).rowcount
+
+    def suppress_pending_reminders(
+        self,
+        session: Session,
+        *,
+        reason: str,
+        event_id: uuid.UUID | None = None,
+        registration_id: uuid.UUID | None = None,
+    ) -> int:
+        return self.suppress_pending(
+            session,
+            notification_types=(NotificationType.EVENT_REMINDER,),
+            reason=reason,
+            event_id=event_id,
+            registration_id=registration_id,
+        )
+
+    def suppress_pending_for_cancelled_registration(
+        self, session: Session, registration_id: uuid.UUID
+    ) -> int:
+        """A cancelled participant must not receive a reminder, confirmation, or promotion
+        that describes a seat and ticket they no longer hold."""
+        return self.suppress_pending(
+            session,
+            notification_types=(
+                NotificationType.EVENT_REMINDER,
+                NotificationType.REGISTRATION_CONFIRMED,
+                NotificationType.WAITLIST_PROMOTED,
+            ),
+            reason="registration cancelled",
+            registration_id=registration_id,
+        )
 
     def retry_failed(self, session: Session, notification_id: uuid.UUID | None = None) -> int:
         """Deliberately return FAILED rows to the queue for one more delivery cycle.

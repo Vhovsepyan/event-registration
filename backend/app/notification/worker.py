@@ -67,13 +67,22 @@ class SmtpMailer:
         try:
             with smtplib.SMTP(self.host, self.port, timeout=10) as smtp:
                 smtp.send_message(message)
-        except (
-            smtplib.SMTPRecipientsRefused,
-            smtplib.SMTPSenderRefused,
-            smtplib.SMTPDataError,
-            smtplib.SMTPNotSupportedError,
-        ) as exc:
+        except smtplib.SMTPRecipientsRefused as exc:
+            codes = [code for code, _ in exc.recipients.values()]
+            if codes and all(_is_permanent_reply(code) for code in codes):
+                raise PermanentDeliveryError(f"SMTP rejected the recipient: {exc}") from exc
+            raise  # 4xx: the server asked us to try again later
+        except (smtplib.SMTPSenderRefused, smtplib.SMTPDataError) as exc:
+            if _is_permanent_reply(exc.smtp_code):
+                raise PermanentDeliveryError(f"SMTP rejected the message: {exc}") from exc
+            raise
+        except smtplib.SMTPNotSupportedError as exc:
             raise PermanentDeliveryError(f"SMTP rejected the message: {exc}") from exc
+
+
+def _is_permanent_reply(code: int) -> bool:
+    """RFC 5321: 5yz replies are permanent negative completion; 4yz are transient."""
+    return 500 <= code <= 599
 
 
 class NotificationWorker:
@@ -189,6 +198,8 @@ class NotificationWorker:
         event = session.get(Event, notification.event_id)
         if event is None or event.schedule_revision != notification.schedule_revision:
             return "event schedule changed before delivery"
+        if event.starts_at <= self.clock():
+            return "event already started before delivery"
         registration = session.get(Registration, notification.registration_id)
         if registration is None or registration.status != RegistrationStatus.CONFIRMED:
             return "registration no longer confirmed before delivery"
@@ -270,12 +281,42 @@ def build_worker(settings: Settings) -> NotificationWorker:
     )
 
 
+def run_cycles(
+    worker: NotificationWorker,
+    *,
+    batch_size: int,
+    poll_interval: float,
+    max_backoff: float,
+    sleep: Callable[[float], None] = time.sleep,
+    keep_running: Callable[[], bool] = lambda: True,
+) -> None:
+    """Poll until told to stop, surviving any failure of a single cycle.
+
+    A dropped database connection, a deadlock, or a DNS hiccup must not end the process
+    while the API keeps queueing mail; the cycle is logged and retried with bounded backoff.
+    """
+    delay = poll_interval
+    while keep_running():
+        try:
+            worker.process_once(batch_size)
+        except Exception:
+            logger.exception("notification cycle failed; retrying in %.1fs", delay)
+            sleep(delay)
+            delay = min(delay * 2, max_backoff)
+            continue
+        delay = poll_interval
+        sleep(poll_interval)
+
+
 def run_forever() -> None:
     settings = get_settings()
-    worker = build_worker(settings)
-    while True:
-        worker.process_once(settings.notification_batch_size)
-        time.sleep(settings.notification_poll_interval_seconds)
+    logging.basicConfig(level=logging.INFO)
+    run_cycles(
+        build_worker(settings),
+        batch_size=settings.notification_batch_size,
+        poll_interval=settings.notification_poll_interval_seconds,
+        max_backoff=settings.notification_retry_max_seconds,
+    )
 
 
 def retry_failed(notification_id: uuid.UUID | None) -> int:

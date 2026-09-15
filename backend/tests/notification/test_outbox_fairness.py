@@ -108,11 +108,16 @@ def worker_for(
 
 
 async def queue_healthy_intent(client: httpx.AsyncClient) -> str:
-    """Create confirmation, promotion, reschedule, and (due) reminder intent for one event."""
-    event = await create_event(client, title="Healthy", capacity=1, hours=23)
-    first = await register(client, event["id"], "good-first@example.com")
-    await register(client, event["id"], "good-second@example.com")
-    await client.post(f"/api/events/{event['id']}/registrations/{first['id']}/cancel")
+    """Create confirmation, promotion, reschedule, and (due) reminder intent for one event.
+
+    `good-first` keeps its seat (its confirmation is healthy mail); `good-second` cancels so
+    `good-third` is promoted. The cancelled participant's own confirmation is suppressed.
+    """
+    event = await create_event(client, title="Healthy", capacity=2, hours=23)
+    await register(client, event["id"], "good-first@example.com")
+    second = await register(client, event["id"], "good-second@example.com")
+    await register(client, event["id"], "good-third@example.com")
+    await client.post(f"/api/events/{event['id']}/registrations/{second['id']}/cancel")
     response = await client.patch(
         f"/api/events/{event['id']}",
         json={"starts_at": (datetime.now(UTC) + timedelta(hours=22)).isoformat()},
@@ -136,15 +141,19 @@ async def test_permanent_failures_do_not_starve_healthy_mail(
     second_cycle = worker.process_once()
     third_cycle = worker.process_once()
 
-    assert (first_cycle, second_cycle, third_cycle) == (0, 4, 0)
+    assert (first_cycle, second_cycle, third_cycle) == (0, 6, 0)
     healthy = [row for row in rows(database_engine) if str(row.event_id) == healthy_event_id]
-    assert {row.type for row in healthy} == {
+    cancelled = [row for row in healthy if row.recipient == "good-second@example.com"]
+    assert [row.status for row in cancelled] == [NotificationStatus.SUPPRESSED]
+    delivered = [row for row in healthy if row.recipient != "good-second@example.com"]
+    assert {row.type for row in delivered} == {
         NotificationType.REGISTRATION_CONFIRMED,
         NotificationType.WAITLIST_PROMOTED,
         NotificationType.EVENT_RESCHEDULED,
         NotificationType.EVENT_REMINDER,
     }
-    assert all(row.status == NotificationStatus.SENT and row.attempts == 1 for row in healthy)
+    assert len(delivered) == 6
+    assert all(row.status == NotificationStatus.SENT and row.attempts == 1 for row in delivered)
     poisoned = [row for row in rows(database_engine) if str(row.event_id) == poison["id"]]
     assert len(poisoned) == 20
     for row in poisoned:
@@ -152,7 +161,7 @@ async def test_permanent_failures_do_not_starve_healthy_mail(
         assert row.attempts == 1
         assert row.failed_at is not None
         assert row.last_error == "SMTP rejected the message"
-    assert len(mailer.messages) == 4
+    assert len(mailer.messages) == 6
 
 
 async def test_transient_failures_are_deferred_and_retried_without_starving(
