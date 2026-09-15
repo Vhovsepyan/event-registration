@@ -32,7 +32,7 @@ PostgreSQL event-row locks serialize registration, cancellation, promotion, and 
 - Add organizer/staff authentication and role-based authorization, then design a secure participant registration-management flow.
 - Integrate a production email provider with provider-supported idempotency and delivery-event handling.
 - Add structured logging, metrics, tracing, outbox-lag alerts, and operational dashboards.
-- Add production deployment, secrets, TLS, backup, migration, and rollback configuration.
+- Move from the single-host Compose deployment to Cloud Run (API and worker) with Cloud SQL and a managed email provider; add secrets management, backups, monitoring, and rollback procedures.
 - Add rate limiting and request-abuse protection at the API edge.
 
 ## AI-assisted development
@@ -115,6 +115,17 @@ npm run dev
 ```
 
 Open `http://localhost:5173`. Mailpit's inbox is at `http://localhost:8025`. The frontend defaults to `http://localhost:8000`; copy `frontend/.env.example` to `frontend/.env` to change `VITE_API_BASE_URL`.
+
+## Deploy the demo on one host
+
+`docker-compose.deploy.yml` adds container images for the API, worker, and frontend plus Caddy for HTTPS, with PostgreSQL and Mailpit kept internal and the Mailpit inbox published under `/mail` behind basic auth:
+
+```powershell
+cp .env.deploy.example .env.deploy   # set the password, domain, organizer key, and inbox hash
+docker compose --env-file .env.deploy -f docker-compose.yml -f docker-compose.deploy.yml up -d --build
+```
+
+The step-by-step guide for a Google Cloud `e2-micro`, the variables, and the verified local rehearsal are in [docs/deploy/google-cloud-vm.md](docs/deploy/google-cloud-vm.md). The local development workflow above is unchanged.
 
 ## Product routes
 

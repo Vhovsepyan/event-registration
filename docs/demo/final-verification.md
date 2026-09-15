@@ -105,3 +105,9 @@ Both default and test-profile Compose configurations validate successfully, and 
 - Backend: Ruff passed; full PostgreSQL suite 100 passed (event list ordering/counts/filter; waitlist email, self-service links in all five email types, registration lookup, SMTP STARTTLS/login); empty test database migrated from base through `20260915_0013` with a clean drift check and `0013` downgrade/upgrade; development database upgraded to `0013`.
 - Frontend: Vitest 21 passed (event lists, empty state, organizer list, self-service cancel, waitlisted/unknown registration, result-card link); Oxlint and production build passed.
 - Browser: both Playwright scenarios passed, starting from `/organizer` and cancelling through the self-service page, run against the developer's live API and Vite servers via `PLAYWRIGHT_REUSE_SERVERS=1`; a real-browser screenshot of `/` showed the live upcoming-events list.
+
+## Tasks 0030–0031 deployment-readiness verification
+
+- Completed: 2026-09-15T11:05:12+04:00
+- Backend: 104 passed (organizer key on five protected routes, six open participant routes, stream key query parameter, `/ready` 200/503); frontend 23 passed (key prompt, retry with header, stream URL with key, forget rejected key); Playwright 2 passed unkeyed against the running servers; a keyed live instance returned 401/201/200/401 as expected.
+- Deployment rehearsal: images built; the Compose deploy overlay started PostgreSQL → migrate → api (healthy on `/ready`) → worker, frontend, Mailpit, Caddy; all product flows and both emails verified through the proxy on port 8080, Mailpit inbox protected under `/mail`; stack removed cleanly. Google Cloud VM steps are documented in `docs/deploy/google-cloud-vm.md` and marked as not yet executed.

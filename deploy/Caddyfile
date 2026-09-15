@@ -1,0 +1,26 @@
+# SITE_ADDRESS is ":80" for plain HTTP (local checks, or behind another TLS terminator) or a
+# hostname such as "events.example.com" for automatic Let's Encrypt certificates.
+{$SITE_ADDRESS} {
+	encode gzip
+
+	# Mailpit inbox: the demo's "email client", protected because it shows everyone's mail.
+	handle /mail* {
+		basic_auth {
+			{$MAILPIT_UI_USER} {$MAILPIT_UI_PASSWORD_HASH}
+		}
+		reverse_proxy mailpit:8025
+	}
+
+	# API, docs, and health checks. flush_interval -1 keeps the SSE stream unbuffered.
+	@api path /api/* /health /ready /docs /openapi.json
+	handle @api {
+		reverse_proxy api:8000 {
+			flush_interval -1
+		}
+	}
+
+	# Everything else is the React application.
+	handle {
+		reverse_proxy frontend:80
+	}
+}

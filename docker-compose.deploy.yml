@@ -1,0 +1,90 @@
+# Single-host deployment overlay. Use together with the base file:
+#   docker compose -f docker-compose.yml -f docker-compose.deploy.yml up -d --build
+# Everything is reached through Caddy on ports 80/443; PostgreSQL and Mailpit's SMTP port are
+# internal only, and Mailpit's inbox is proxied under /mail behind basic auth.
+services:
+  postgres:
+    ports: !override []
+    environment:
+      POSTGRES_DB: event_registration
+      POSTGRES_USER: event_registration
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in the env file}
+    restart: unless-stopped
+
+  mailpit:
+    ports: !override []
+    environment:
+      MP_WEBROOT: /mail
+    restart: unless-stopped
+
+  migrate:
+    build: ./backend
+    image: event-registration-backend
+    command: ["alembic", "upgrade", "head"]
+    environment:
+      DATABASE_URL: postgresql+psycopg://event_registration:${POSTGRES_PASSWORD}@postgres:5432/event_registration
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    image: event-registration-backend
+    environment: &backend-env
+      DATABASE_URL: postgresql+psycopg://event_registration:${POSTGRES_PASSWORD}@postgres:5432/event_registration
+      SMTP_HOST: mailpit
+      SMTP_PORT: "1025"
+      SMTP_FROM: ${SMTP_FROM:-events@example.local}
+      FRONTEND_BASE_URL: ${PUBLIC_URL:?set PUBLIC_URL in the env file}
+      CORS_ORIGINS: '["${PUBLIC_URL}"]'
+      ORGANIZER_KEY: ${ORGANIZER_KEY:?set ORGANIZER_KEY in the env file}
+      ENVIRONMENT: production
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/ready', timeout=3).status == 200 else 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    restart: unless-stopped
+
+  worker:
+    image: event-registration-backend
+    command: ["python", "-m", "app.notification.worker"]
+    environment: *backend-env
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_BASE_URL: ""
+    image: event-registration-frontend
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2
+    ports:
+      - "${CADDY_HTTP_PORT:-80}:80"
+      - "${CADDY_HTTPS_PORT:-443}:443"
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:-:80}
+      MAILPIT_UI_USER: ${MAILPIT_UI_USER:-mail}
+      MAILPIT_UI_PASSWORD_HASH: ${MAILPIT_UI_PASSWORD_HASH:?set MAILPIT_UI_PASSWORD_HASH in the env file}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      api:
+        condition: service_healthy
+      frontend:
+        condition: service_started
+    restart: unless-stopped
+
+volumes:
+  caddy_data:
+  caddy_config:
