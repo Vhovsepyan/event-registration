@@ -18,13 +18,15 @@ export function OrganizerPage() {
     // The stream only emits changes relative to what it already sent, so a live snapshot must
     // never be replaced by the initial HTTP response if that response happens to resolve later.
     let liveSnapshotApplied = false
-    Promise.all([api.getEvent(eventId), api.getStats(eventId)])
-      .then(([eventData, statsData]) => {
-        if (active) {
-          setEvent(eventData)
-          if (!liveSnapshotApplied) setStats(statsData)
-        }
-      })
+    // Each request stands on its own: a failed statistics call must not hide the event
+    // details that loaded, and vice versa.
+    api
+      .getEvent(eventId)
+      .then((eventData) => active && setEvent(eventData))
+      .catch((caught) => active && setError(errorMessage(caught)))
+    api
+      .getStats(eventId)
+      .then((statsData) => active && !liveSnapshotApplied && setStats(statsData))
       .catch((caught) => active && setError(errorMessage(caught)))
 
     const stream = new EventSource(statsStreamUrl(eventId))

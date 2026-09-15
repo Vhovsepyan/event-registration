@@ -33,7 +33,12 @@ PostgreSQL event-row locks serialize registration, cancellation, promotion, and 
 
 ## AI-assisted development
 
-OpenAI Codex was used as the implementation agent to inspect the repository, implement focused tasks, run tests and local proof, diagnose failures, and record technical decisions. It was used to provide a repeatable implementation-and-verification workflow while keeping the work auditable. The repository does not contain evidence for a more specific model identifier, so none is claimed here.
+Two AI coding agents were used, each recorded per task in the development log:
+
+- **OpenAI Codex** implemented tasks 0001–0018 (foundation through the first post-review fixes) and produced the ChatGPT Astra 6 review in `docs/reviews/`. The repository holds no evidence of a more specific model identifier for those tasks, so none is claimed.
+- **Claude Code with Claude Opus 5** implemented tasks 0019–0027: the four P1 and two P2 review follow-ups and the second-round review fixes.
+
+In both cases the agent inspected the repository, implemented focused tasks, ran tests and local proof, diagnosed failures, and recorded technical decisions under the workflow in `docs/master-instruction.md`, so the work stays auditable. The incremental commit history lives at https://github.com/Vhovsepyan/event-registration; a zip export of the tree does not carry it.
 
 Task specifications are in `docs/tasks/`, prompt evidence is in `docs/prompts/`, architecture and product decisions are in `docs/decisions/`, timestamped implementation evidence is in `docs/agent/development-log.md`, and demonstration/verification records are in `docs/demo/`.
 
@@ -41,7 +46,7 @@ Task specifications are in `docs/tasks/`, prompt evidence is in `docs/prompts/`,
 
 - Python 3.13.15
 - [uv](https://docs.astral.sh/uv/)
-- Node.js with npm
+- Node.js 22.12 or newer (24 LTS recommended; the locked Vitest 5 refuses to start on Node 18/20) with npm
 - Docker with Docker Compose
 - Microsoft Edge for the default Playwright run, or Google Chrome with `PLAYWRIGHT_CHANNEL=chrome`
 
@@ -126,13 +131,15 @@ $env:POSTGRES_TEST_PORT = "5434"
 docker compose --profile test up -d postgres-test
 ```
 
-Backend (tests use PostgreSQL at port 5434 by default; the fixture drops and recreates every table, so it refuses any `TEST_DATABASE_URL` whose database name does not end in `_test`):
+Backend (tests use PostgreSQL at port 5434 by default; the fixture drops and recreates every table, so it refuses any `TEST_DATABASE_URL` whose database name does not end in `_test`). Alembic reads `DATABASE_URL`, so point it at the test service for the migration and drift checks; the test fixture also removes `alembic_version`, so the checks and the suite can run in any order:
 
 ```powershell
 cd backend
 uv sync --locked
 uv run ruff check .
 uv run ruff format --check .
+$env:DATABASE_URL = "postgresql+psycopg://event_registration:event_registration@localhost:5434/event_registration_test"
+uv run alembic upgrade head
 uv run alembic check
 uv run pytest
 ```

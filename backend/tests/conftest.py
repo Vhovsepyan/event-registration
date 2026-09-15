@@ -4,7 +4,7 @@ from collections.abc import AsyncIterator, Iterator
 import httpx
 import pytest
 import pytest_asyncio
-from sqlalchemy import Engine, create_engine
+from sqlalchemy import Engine, create_engine, text
 from sqlalchemy.engine import make_url
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -41,6 +41,10 @@ def database_engine() -> Iterator[Engine]:
     assert_safe_test_database(TEST_DATABASE_URL, override=os.getenv("ALLOW_UNSAFE_TEST_DATABASE"))
     engine = create_engine(TEST_DATABASE_URL)
     Base.metadata.drop_all(engine)
+    # The suite builds tables from metadata, not migrations; a stale Alembic stamp would make a
+    # later `alembic upgrade head` a no-op against an empty schema.
+    with engine.begin() as connection:
+        connection.execute(text("DROP TABLE IF EXISTS alembic_version"))
     Base.metadata.create_all(engine)
     yield engine
     Base.metadata.drop_all(engine)

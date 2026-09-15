@@ -1,6 +1,6 @@
 # Task 0027 — Documentation, provenance, and organizer error isolation
 
-- Status: OPEN
+- Status: DONE (2026-09-15, task 0027 commit)
 - Created: 2026-09-15
 - Source: second external review round (GPT 5.6 ultra findings 3, 5, 6, 7 and secondary 4), verified on 2026-09-15
 
@@ -19,3 +19,10 @@
 3. README's provenance section accurately attributes tasks 0001–0018 to OpenAI Codex and tasks 0019 onward to Claude Code (Claude Opus 5), consistent with the development log, and links the repository.
 4. The organizer page renders whichever of event details or statistics succeeded and reports the failed one; a component test proves it.
 5. Frontend lint/tests/build and the browser proof remain green.
+
+## Resolution
+
+- README's test section sets `DATABASE_URL` to the test service before `alembic upgrade head` and `alembic check`; the test fixture now also drops `alembic_version`, so the migration checks and the suite work in either order (verified: suite, then 12 upgrades from base and a clean drift check).
+- `frontend/package.json` declares `engines.node: ">=22.12.0"`; README prerequisites state Node 22.12+ (24 LTS recommended).
+- README's AI-assisted development section attributes tasks 0001-0018 and the Astra 6 review to OpenAI Codex and tasks 0019-0027 to Claude Code with Claude Opus 5, matching the development log, and links the GitHub repository for the commit history.
+- `OrganizerPage` issues the event and statistics requests independently; a failure in one surfaces as the error alert while the other still renders. Two component tests cover both directions.

@@ -301,4 +301,40 @@ describe('product flows', () => {
     expect(within(stats).getByLabelText('Checked in: 4')).toBeVisible()
     expect(within(stats).queryByLabelText('Checked in: 3')).toBeNull()
   })
+
+  it.each([
+    ['statistics', '/stats', EVENT.title, 'Event statistics'],
+    ['event details', '/events/event-1', 'Checked in: 3', 'Event overview'],
+  ] as const)(
+    'still renders the other response when the %s request fails',
+    async (_label, failingSuffix, visibleLabel, hiddenOrGeneric) => {
+      class MockEventSource {
+        onerror: (() => void) | null = null
+        addEventListener() {}
+        close() {}
+      }
+      vi.stubGlobal('EventSource', MockEventSource)
+      vi.stubGlobal(
+        'fetch',
+        vi.fn((url: string) =>
+          Promise.resolve(
+            url.endsWith(failingSuffix)
+              ? new Response(JSON.stringify({ detail: 'Service unavailable' }), { status: 503 })
+              : response(url.endsWith('/stats') ? STATS : EVENT),
+          ),
+        ),
+      )
+
+      renderAt('/events/event-1/organizer')
+
+      expect(await screen.findByRole('alert')).toHaveTextContent('Service unavailable')
+      if (failingSuffix === '/stats') {
+        expect(screen.getByRole('heading', { name: visibleLabel })).toBeVisible()
+        expect(screen.queryByLabelText(hiddenOrGeneric)).toBeNull()
+      } else {
+        expect(screen.getByLabelText(visibleLabel)).toBeVisible()
+        expect(screen.getByRole('heading', { name: hiddenOrGeneric })).toBeVisible()
+      }
+    },
+  )
 })

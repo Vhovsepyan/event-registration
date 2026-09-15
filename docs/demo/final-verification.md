@@ -90,3 +90,11 @@ Both default and test-profile Compose configurations validate successfully, and 
 - Frontend: Vitest 12 passed (new delayed-HTTP-snapshot test, confirmed failing before the fix); Oxlint and production build passed.
 - Backend: Ruff passed; full PostgreSQL suite 72 passed (new pool-release test observed 1 checked-out connection before the fix and 0 after; stream 404 test added).
 - Browser: both Playwright scenarios passed after each task against the live SSE route; ports 8000/5173 released.
+
+## Tasks 0025–0027 second-review verification
+
+- Completed: 2026-09-15T09:22:35+04:00
+- Backend: Ruff passed; full PostgreSQL suite 92 passed (20 new tests across worker resilience, SMTP reply classification, overdue/cancelled suppression, reschedule coalescing, capacity/title bounds, the test-database guard, and pool configuration); empty test database migrated from base through `20260914_0012` with a clean drift check, `0012` downgrade/upgrade, and the `0005` downgrade guard verified with a seeded promoted registration; development database upgraded to `0012`.
+- Frontend: Vitest 14 passed; Oxlint and production build passed; `engines.node >= 22.12` declared.
+- Documented test recipe: verified as written with only the test service running, in both orders (suite then migration checks, and migration checks then suite).
+- Browser: both Playwright scenarios passed against the current code; ports 8000/5173 released.

@@ -347,3 +347,16 @@
 - Failures diagnosed: None; all new tests passed on first run after the formatter normalised line lengths.
 - Tests/checks: Ruff lint/format; backend pytest (92 passed, including nine new bound/guard tests); empty test database migrated to `20260914_0012` with `alembic check` clean, `0012` downgrade/upgrade, direct tab-only insert rejected; `0005` downgrade refused with a seeded promoted registration and succeeded after the documented `UPDATE`; development database upgraded to `0012`; Git whitespace check.
 - Self-review: Each acceptance criterion has a direct test or migration proof; no product behavior changed for valid input; the guard cannot be bypassed without the explicit environment variable. No Critical or Important findings remain.
+
+## 2026-09-15T09:18:59+04:00 — Task 0027 started
+
+- Task: Documentation, provenance, and organizer error isolation (second review round)
+- Agent/tool: Claude Code (Claude Opus 5) using README/package metadata, pytest fixtures, React/Testing Library, Oxlint, Vite, Playwright, and Git
+- Prompt/reference: `docs/prompts/0027-documentation-provenance-and-organizer-errors.md` and `docs/tasks/0027-documentation-provenance-and-organizer-errors.md`
+- Existing work: Tasks 0025–0026 committed; README's test recipe pointed Alembic at the development database, Node's minimum version was undocumented, the provenance section still named only Codex, and the organizer page coupled its two initial requests
+- Decisions: Point the documented migration checks at the test service and make the fixture drop `alembic_version` so order does not matter; declare `engines.node` from the locked toolchain; state both agents and their task ranges plainly and link the repository; split the organizer requests rather than swallow one failure
+- Status: Completed at 2026-09-15T09:22:35+04:00
+- Result: The README test recipe runs as written from a shell with only the test service up, Node requirements are explicit, AI provenance matches the development log, and a failed statistics or event request no longer hides the other response on the dashboard.
+- Failures diagnosed: The Playwright run was blocked because the API, worker, and Vite processes started earlier for the user's "run the project" request were still bound to ports 8000/5173, and stopping the Vite wrapper left its node child alive; the child was identified by command line and stopped individually, after which the browser proof passed. A shell pipeline aborted on `grep -c` returning 0 during the recipe proof; the proof was rerun with a database-backed test in between.
+- Tests/checks: Vitest (14 passed, two new error-isolation tests); Oxlint; TypeScript/Vite build; backend pytest (92 passed) followed by `alembic upgrade head` (12 upgrades from base) and a clean `alembic check` against the test service, proving the documented order; Playwright (2 passed) with ports released; Git whitespace check.
+- Self-review: All five acceptance criteria are met and verified; no backend behavior changed beyond the test fixture. Tasks 0025–0027 close every confirmed finding from the second review round. No Critical or Important findings remain.
