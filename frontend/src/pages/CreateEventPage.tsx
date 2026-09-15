@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom'
 
 import { api } from '../api'
 import { EventList } from '../components/EventList'
+import { OrganizerKeyPrompt } from '../components/OrganizerKeyPrompt'
+import { useOrganizerKeyGate } from '../hooks/useOrganizerKeyGate'
 import { errorMessage } from '../format'
 import type { EventSummary } from '../types'
 
@@ -12,10 +14,11 @@ export function CreateEventPage() {
   const [submitting, setSubmitting] = useState(false)
   const [events, setEvents] = useState<EventSummary[] | null>(null)
   const [listError, setListError] = useState('')
+  const gate = useOrganizerKeyGate()
 
   useEffect(() => {
     api.listEvents(true).then(setEvents).catch((caught) => setListError(errorMessage(caught)))
-  }, [])
+  }, [gate.version])
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -31,7 +34,7 @@ export function CreateEventPage() {
       })
       navigate(`/events/${created.id}/organizer`)
     } catch (caught) {
-      setError(errorMessage(caught))
+      if (!gate.guard(caught)) setError(errorMessage(caught))
     } finally {
       setSubmitting(false)
     }
@@ -42,6 +45,7 @@ export function CreateEventPage() {
       <p className="eyebrow">Organizer</p>
       <h1 id="create-heading">Create an event</h1>
       <p className="lede">Set the details, then share the participant link from your dashboard.</p>
+      {gate.needsKey && <OrganizerKeyPrompt onSaved={gate.saved} />}
       <form className="form-grid" onSubmit={submit}>
         <label>
           Event title

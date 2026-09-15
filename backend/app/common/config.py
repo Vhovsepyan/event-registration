@@ -18,6 +18,8 @@ class Settings(BaseSettings):
     smtp_password: str | None = None
     smtp_starttls: bool = False
     frontend_base_url: str = "http://localhost:5173"
+    # Shared secret for organizer/staff routes; unset means open (local development).
+    organizer_key: str | None = None
     notification_poll_interval_seconds: float = Field(default=2.0, gt=0)
     notification_claim_timeout_seconds: float = Field(default=60.0, gt=0)
     notification_batch_size: int = Field(default=20, gt=0, le=1000)

@@ -1,6 +1,8 @@
 import { type FormEvent, useState } from 'react'
 
 import { api } from '../api'
+import { OrganizerKeyPrompt } from '../components/OrganizerKeyPrompt'
+import { useOrganizerKeyGate } from '../hooks/useOrganizerKeyGate'
 import { errorMessage } from '../format'
 import type { CheckInResponse } from '../types'
 
@@ -26,6 +28,7 @@ export function CheckInPage() {
   const [result, setResult] = useState<CheckInResponse | null>(null)
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const gate = useOrganizerKeyGate()
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -36,7 +39,7 @@ export function CheckInPage() {
     try {
       setResult(await api.checkIn(String(form.get('code'))))
     } catch (caught) {
-      setError(errorMessage(caught))
+      if (!gate.guard(caught)) setError(errorMessage(caught))
     } finally {
       setSubmitting(false)
     }
@@ -48,6 +51,7 @@ export function CheckInPage() {
       <p className="eyebrow">Event staff</p>
       <h1 id="check-in-heading">Check in a guest</h1>
       <p className="lede">Enter the ticket code exactly as shown on the attendee’s ticket.</p>
+      {gate.needsKey && <OrganizerKeyPrompt onSaved={gate.saved} />}
       <form className="form-grid compact-form" onSubmit={submit}>
         <label>
           Ticket code

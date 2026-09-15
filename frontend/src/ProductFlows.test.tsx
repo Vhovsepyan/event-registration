@@ -410,6 +410,64 @@ describe('product flows', () => {
     )
   })
 
+  it('asks for the organizer key on 401, then retries with it and connects the stream', async () => {
+    localStorage.removeItem('organizerKey')
+    const streamUrls: string[] = []
+    class MockEventSource {
+      onerror: (() => void) | null = null
+      constructor(url: string) {
+        streamUrls.push(url)
+      }
+      addEventListener() {}
+      close() {}
+    }
+    vi.stubGlobal('EventSource', MockEventSource)
+    const unauthorized = () =>
+      new Response(JSON.stringify({ detail: 'This action requires the organizer key' }), { status: 401 })
+    const fetchMock = vi.fn((url: string, options?: RequestInit) => {
+      const headers = new Headers(options?.headers)
+      if (url.endsWith('/stats')) {
+        return Promise.resolve(headers.get('X-Organizer-Key') === 's3cret' ? response(STATS) : unauthorized())
+      }
+      return Promise.resolve(response(EVENT))
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const user = userEvent.setup()
+
+    renderAt('/events/event-1/organizer')
+
+    expect(await screen.findByRole('heading', { name: 'Organizer key required' })).toBeVisible()
+    expect(screen.queryByRole('alert')).toBeNull()
+    expect(streamUrls[0]).not.toContain('organizer_key')
+    await user.type(screen.getByLabelText('Organizer key'), 's3cret')
+    await user.click(screen.getByRole('button', { name: 'Unlock' }))
+
+    expect(await screen.findByLabelText('Event statistics')).toBeVisible()
+    expect(screen.queryByRole('heading', { name: 'Organizer key required' })).toBeNull()
+    expect(localStorage.getItem('organizerKey')).toBe('s3cret')
+    expect(streamUrls.at(-1)).toContain('/stats/stream?organizer_key=s3cret')
+    localStorage.removeItem('organizerKey')
+  })
+
+  it('offers to forget a stored key that the API rejects on check-in', async () => {
+    localStorage.setItem('organizerKey', 'stale')
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ detail: 'This action requires the organizer key' }), { status: 401 }),
+      ),
+    )
+    const user = userEvent.setup()
+
+    renderAt('/check-in')
+    await user.type(screen.getByLabelText('Ticket code'), 'ABCD-EFGH-IJKL')
+    await user.click(screen.getByRole('button', { name: 'Check in' }))
+
+    expect(await screen.findByText(/stored organizer key was rejected/)).toBeVisible()
+    await user.click(screen.getByRole('button', { name: 'Forget stored key' }))
+    expect(localStorage.getItem('organizerKey')).toBeNull()
+  })
+
   it.each([
     ['statistics', '/stats', EVENT.title, 'Event statistics'],
     ['event details', '/events/event-1', 'Checked in: 3', 'Event overview'],

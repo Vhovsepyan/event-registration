@@ -3,6 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
+from app.common.auth import require_organizer_key
 from app.db.session import get_db_session
 from app.ticket.schemas import CheckInCreate, CheckInRead, TicketDetails
 from app.ticket.service import TicketService
@@ -17,7 +18,7 @@ def get_ticket(code: str, session: Annotated[Session, Depends(get_db_session)]) 
     return service.get_details(session, code)
 
 
-@check_in_router.post("", response_model=CheckInRead)
+@check_in_router.post("", response_model=CheckInRead, dependencies=[Depends(require_organizer_key)])
 def check_in_ticket(
     data: CheckInCreate, session: Annotated[Session, Depends(get_db_session)]
 ) -> CheckInRead:

@@ -20,11 +20,54 @@ export class ApiError extends Error {
   }
 }
 
+/** The API is protected by an organizer key and this request did not carry a valid one. */
+export class UnauthorizedError extends ApiError {
+  constructor(message: string) {
+    super(message)
+    this.name = 'UnauthorizedError'
+  }
+}
+
+const ORGANIZER_KEY_STORAGE = 'organizerKey'
+
+export function getOrganizerKey(): string | null {
+  try {
+    return localStorage.getItem(ORGANIZER_KEY_STORAGE)
+  } catch {
+    return null
+  }
+}
+
+export function setOrganizerKey(key: string): void {
+  try {
+    localStorage.setItem(ORGANIZER_KEY_STORAGE, key)
+  } catch {
+    // Storage unavailable (private mode, blocked): the key simply has to be re-entered.
+  }
+}
+
+export function clearOrganizerKey(): void {
+  try {
+    localStorage.removeItem(ORGANIZER_KEY_STORAGE)
+  } catch {
+    // ignore
+  }
+}
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
+  const organizerKey = getOrganizerKey()
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...options,
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(organizerKey ? { 'X-Organizer-Key': organizerKey } : {}),
+      ...options?.headers,
+    },
   })
+  if (response.status === 401) {
+    const body = (await response.json().catch(() => null)) as { detail?: string } | null
+    throw new UnauthorizedError(body?.detail || 'This action requires the organizer key')
+  }
   if (!response.ok) {
     const body = (await response.json().catch(() => null)) as
       | { detail?: string | Array<{ msg?: string }> }
@@ -75,5 +118,8 @@ export const api = {
 }
 
 export function statsStreamUrl(eventId: string): string {
-  return `${API_BASE_URL}/api/events/${eventId}/stats/stream`
+  // EventSource cannot send headers, so the stream takes the key as a query parameter.
+  const organizerKey = getOrganizerKey()
+  const query = organizerKey ? `?organizer_key=${encodeURIComponent(organizerKey)}` : ''
+  return `${API_BASE_URL}/api/events/${eventId}/stats/stream${query}`
 }

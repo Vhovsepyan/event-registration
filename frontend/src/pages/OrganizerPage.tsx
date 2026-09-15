@@ -2,6 +2,8 @@ import { type FormEvent, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 
 import { api, statsStreamUrl } from '../api'
+import { OrganizerKeyPrompt } from '../components/OrganizerKeyPrompt'
+import { useOrganizerKeyGate } from '../hooks/useOrganizerKeyGate'
 import { errorMessage, formatDateTime } from '../format'
 import type { EventRecord, EventStats } from '../types'
 
@@ -12,6 +14,7 @@ export function OrganizerPage() {
   const [error, setError] = useState('')
   const [live, setLive] = useState(false)
   const [rescheduling, setRescheduling] = useState(false)
+  const { needsKey, version: keyVersion, guard, saved } = useOrganizerKeyGate()
 
   useEffect(() => {
     let active = true
@@ -27,7 +30,7 @@ export function OrganizerPage() {
     api
       .getStats(eventId)
       .then((statsData) => active && !liveSnapshotApplied && setStats(statsData))
-      .catch((caught) => active && setError(errorMessage(caught)))
+      .catch((caught) => active && !guard(caught) && setError(errorMessage(caught)))
 
     const stream = new EventSource(statsStreamUrl(eventId))
     const update = (message: MessageEvent<string>) => {
@@ -43,7 +46,7 @@ export function OrganizerPage() {
       active = false
       stream.close()
     }
-  }, [eventId])
+  }, [eventId, keyVersion, guard])
 
   async function reschedule(submitEvent: FormEvent<HTMLFormElement>) {
     submitEvent.preventDefault()
@@ -60,7 +63,7 @@ export function OrganizerPage() {
       )
       formElement.reset()
     } catch (caught) {
-      setError(errorMessage(caught))
+      if (!guard(caught)) setError(errorMessage(caught))
     } finally {
       setRescheduling(false)
     }
@@ -78,12 +81,13 @@ export function OrganizerPage() {
           <span aria-hidden="true" /> {live ? 'Live' : 'Connecting'}
         </span>
       </div>
+      {needsKey && <OrganizerKeyPrompt onSaved={saved} />}
       {stats ? <div className="stat-grid" aria-label="Event statistics">
         <article aria-label={`Capacity: ${stats.capacity}`}><strong>{stats.capacity}</strong><span>Capacity</span></article>
         <article aria-label={`Confirmed: ${stats.confirmed}`}><strong>{stats.confirmed}</strong><span>Confirmed</span></article>
         <article aria-label={`Waiting list: ${stats.waitlisted}`}><strong>{stats.waitlisted}</strong><span>Waiting list</span></article>
         <article aria-label={`Checked in: ${stats.checked_in}`}><strong>{stats.checked_in}</strong><span>Checked in</span></article>
-      </div> : !error && <p className="loading" role="status">Loading statistics…</p>}
+      </div> : !error && !needsKey && <p className="loading" role="status">Loading statistics…</p>}
       <div className="dashboard__links">
         <Link className="button button--secondary" to={`/events/${eventId}`}>Participant page</Link>
         <Link className="button button--secondary" to="/check-in">Open check-in</Link>

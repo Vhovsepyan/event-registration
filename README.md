@@ -16,7 +16,7 @@ PostgreSQL event-row locks serialize registration, cancellation, promotion, and 
 
 ## Known limitations
 
-- Authentication and authorization are intentionally not implemented. Organizer, rescheduling, and staff check-in routes must not be exposed publicly as-is; participant cancellation also relies on possession of event and registration identifiers.
+- Authentication and authorization are intentionally not implemented. Organizer, rescheduling, and staff check-in routes can be gated by one shared `ORGANIZER_KEY` for a public demo (no accounts, roles, or ownership); participant cancellation relies on possession of the registration link.
 - There is no participant account. Every email links to the registration's self-service page (`/events/{event_id}/registrations/{registration_id}`); possession of that link, like possession of a ticket code, is what lets someone view or cancel the registration.
 - SMTP delivery is at-least-once at the transport boundary. Each outbox row is claimed with an ownership token immediately before its own send, so a slow batch cannot be resent by a second worker and a stale owner cannot overwrite a newer claim; but if the worker crashes after SMTP accepts a message, or a single SMTP call outlives the claim lease, before the row is marked `SENT`, the row is reclaimed and the recipient can receive a duplicate.
 - Queued reminders, confirmations, and promotions are suppressed when a participant cancels, queued reminders are suppressed when the event is rescheduled or has already started, and a burst of reschedules delivers only the latest notice per participant; reminders are re-verified when the worker claims them. A cancellation or reschedule that commits after that verification and before SMTP accepts the message cannot recall it (see `docs/decisions/0020-reminder-suppression.md`).
@@ -126,7 +126,9 @@ Open `http://localhost:5173`. Mailpit's inbox is at `http://localhost:8025`. The
 - `/tickets/{ticket_code}` — ticket details and status
 - `/check-in` — manual staff check-in
 
-Authentication is deliberately outside the initial product scope. Organizer and staff routes must not be exposed publicly without a separate security design.
+Authentication is deliberately outside the product scope. For a deployment reachable from the internet, set `ORGANIZER_KEY` in `backend/.env`: event creation, rescheduling, statistics, the live stream, and check-in then require it (`X-Organizer-Key` header; the dashboard stream passes it as `organizer_key`). The organizer and check-in screens ask for the key once and remember it in the browser. Participant routes stay open. Leave it unset for local development.
+
+Health endpoints: `GET /health` is process liveness (no database); `GET /ready` executes `SELECT 1` and returns 503 while PostgreSQL is unreachable, for load balancers and container health checks.
 
 ## Tests and quality checks
 
@@ -177,5 +179,7 @@ See [the multi-client verification](docs/demo/multi-client-verification.md) for 
 - `GET /api/tickets/{code}`; `POST /api/check-ins`
 - `GET /api/events/{event_id}/stats`
 - `GET /api/events/{event_id}/stats/stream` (SSE)
+- `GET /health` (liveness); `GET /ready` (database readiness)
+- With `ORGANIZER_KEY` set: `POST /api/events`, `PATCH /api/events/{event_id}`, both stats routes, and `POST /api/check-ins` require `X-Organizer-Key`
 
 Registration, re-registration, cancellation/promotion, ticket issuance, and notification intent commit transactionally. PostgreSQL event-row locks serialize seat changes. Ticket check-in uses a conditional atomic update. SMTP happens only in the separate retrying outbox worker, which claims one row at a time under an ownership token, defers transient failures with backoff, retires permanent failures as `FAILED`, suppresses obsolete reminders, and has the at-least-once transport limitation described above.

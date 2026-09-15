@@ -750,6 +750,8 @@ Implement incrementally.
 0027 — Documentation, provenance, and organizer error isolation
 0028 — Event discovery by role
 0029 — Registration self-service and waitlist email
+0030 — Organizer key for staff routes and a readiness check
+0031 — Containerised single-host deployment
 
 Each task must:
 
