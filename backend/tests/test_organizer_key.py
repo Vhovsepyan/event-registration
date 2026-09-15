@@ -129,3 +129,10 @@ async def test_readiness_reflects_database_availability(client: httpx.AsyncClien
     assert not_ready.json()["reason"] == "OperationalError"
     # Liveness is unaffected by database availability.
     assert (await client.get("/health")).status_code == 200
+
+
+@pytest.mark.parametrize("bad", ["Хаш", "with space", "", "clé"])
+async def test_configured_key_must_be_header_safe(bad: str) -> None:
+    with pytest.raises(ValueError, match="printable ASCII"):
+        Settings(organizer_key=bad)
+    assert Settings(organizer_key="Ok-Key_123!").organizer_key == "Ok-Key_123!"

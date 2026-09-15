@@ -31,6 +31,10 @@ Decision 0003 leaves the product without accounts, which is fine on localhost. E
 - Frontend: `api.ts` stores the key in `localStorage`, sends the header on every request, appends the query parameter to the stream URL, and raises `UnauthorizedError` on 401; `useOrganizerKeyGate` plus `OrganizerKeyPrompt` gate the organizer area, the dashboard, and check-in, rerunning data loads after the key is saved and offering to forget a rejected key.
 - Tests: with a key configured, all five protected routes reject missing/wrong keys and accept the header (query parameter for the stream) while six participant routes stay open; `/ready` 200 and 503 against an unreachable engine (backend 104). Prompt-on-401, retry with header, stream URL with key, and forget-rejected-key (frontend 23). Playwright unchanged with no key (2 passed), and a live instance started with `ORGANIZER_KEY` returned 401/201/200/401 for create-without-key/create-with-key/public-list/check-in-without-key with `/ready` reporting ready.
 
+## Follow-up fix (2026-09-15T12:17:04+04:00)
+
+The user entered a key containing Cyrillic characters; browsers cannot put non-Latin-1 text in a header, so `fetch` threw `Cannot convert value ... to ByteString`, and because the stored key was attached to every request the whole application broke without ever showing the prompt. Fix: `Settings.organizer_key` is validated at startup (printable ASCII, no spaces); the prompt rejects such keys with a clear message; `getOrganizerKey` discards a stored key that is not header-safe so requests proceed without it and the prompt reappears. Tests: four rejected configured keys plus an accepted one (backend); a stored Cyrillic key dropped before the request and rejected on entry (frontend).
+
 ## Out of scope
 
 - Accounts, sessions, per-organizer ownership, rate limiting (edge concern, task 0031 notes), key rotation.

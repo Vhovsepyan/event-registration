@@ -449,6 +449,30 @@ describe('product flows', () => {
     localStorage.removeItem('organizerKey')
   })
 
+  it('rejects a key that cannot travel in a header and drops an unusable stored key', async () => {
+    localStorage.setItem('organizerKey', 'Хаш')
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ detail: 'This action requires the organizer key' }), { status: 401 }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    const user = userEvent.setup()
+
+    renderAt('/check-in')
+    await user.type(screen.getByLabelText('Ticket code'), 'ABCD-EFGH-IJKL')
+    await user.click(screen.getByRole('button', { name: 'Check in' }))
+
+    // The unusable stored key was discarded before the request, so the request went out
+    // without a header and the prompt appeared instead of a browser TypeError.
+    const headers = new Headers((fetchMock.mock.calls[0][1] as RequestInit).headers)
+    expect(headers.get('X-Organizer-Key')).toBeNull()
+    expect(localStorage.getItem('organizerKey')).toBeNull()
+    await screen.findByRole('heading', { name: 'Organizer key required' })
+    await user.type(screen.getByLabelText('Organizer key'), 'Хаш')
+    await user.click(screen.getByRole('button', { name: 'Unlock' }))
+    expect(screen.getByRole('alert')).toHaveTextContent('Latin letters, digits, and punctuation')
+    expect(localStorage.getItem('organizerKey')).toBeNull()
+  })
+
   it('offers to forget a stored key that the API rejects on check-in', async () => {
     localStorage.setItem('organizerKey', 'stale')
     vi.stubGlobal(

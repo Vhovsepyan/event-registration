@@ -1,6 +1,6 @@
 from functools import lru_cache
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -20,6 +20,20 @@ class Settings(BaseSettings):
     frontend_base_url: str = "http://localhost:5173"
     # Shared secret for organizer/staff routes; unset means open (local development).
     organizer_key: str | None = None
+
+    @field_validator("organizer_key")
+    @classmethod
+    def organizer_key_must_be_header_safe(cls, value: str | None) -> str | None:
+        # The key travels in an HTTP header, which cannot carry non-ASCII text; a browser refuses
+        # to send such a header at all. Fail at startup instead of at the first request.
+        if value is None:
+            return None
+        if not value or not all(0x21 <= ord(character) <= 0x7E for character in value):
+            raise ValueError(
+                "ORGANIZER_KEY must contain only printable ASCII characters without spaces"
+            )
+        return value
+
     notification_poll_interval_seconds: float = Field(default=2.0, gt=0)
     notification_claim_timeout_seconds: float = Field(default=60.0, gt=0)
     notification_batch_size: int = Field(default=20, gt=0, le=1000)

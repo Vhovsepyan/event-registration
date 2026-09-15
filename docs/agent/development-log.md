@@ -412,3 +412,14 @@
 - Failures diagnosed: Compose interpolates `$` inside env files, which mangles bcrypt hashes; the example and guide instruct writing each `$` as `1820`. The rehearsal was run under a separate Compose project name so the developer's running database and Mailpit containers were not recreated by the overlay's port overrides.
 - Tests/checks: `docker compose config` for the base, test-profile, and deploy configurations; both images built; rehearsal stack healthy with ordered startup; through Caddy: `/ready` ready, SPA root and deep link, `/mail` 401/200, create 401/201 with the organizer key, registration and waitlist, keyed SSE snapshot, check-in success, two emails delivered with public self-service links, dashboard key prompt screenshot; stack removed with `down -v` and development containers/volumes confirmed intact; backend pytest (104 passed); Oxlint; Vitest (23 passed); Git whitespace check.
 - Self-review: Acceptance criteria 1–4 are verified locally; criterion 5's cloud-side steps are documented, standard, and clearly labelled as not yet executed; no application code changed in this task beyond packaging. No Critical or Important findings remain.
+
+## 2026-09-15T12:17:04+04:00 — Task 0030 follow-up: header-safe organizer key
+
+- Task: Fix a Critical finding reported by the user in task 0030's organizer key
+- Agent/tool: Claude Code (Claude Opus 5) using Pydantic validators, React/Testing Library, pytest, and Git
+- Prompt/reference: the user's browser error `Window.fetch: Cannot convert value in record<ByteString, ByteString> ... character at index 0 has value 1061` (Cyrillic "Х") after entering a non-Latin organizer key
+- Root cause: HTTP header values are Latin-1 only; the browser refused to send `X-Organizer-Key`, and the stored key was attached to every request, so all screens failed before the prompt could appear
+- Decisions: Validate the key as printable ASCII without spaces at API startup and in the prompt; discard an unusable stored key on read rather than surfacing a cryptic `TypeError`
+- Status: Completed at 2026-09-15T12:18:48+04:00
+- Tests/checks: backend pytest key suite (8 passed; full suite otherwise unchanged); Vitest (24 passed); Oxlint; TypeScript/Vite build; README, env example, and task 0030 updated.
+- Self-review: The failure is now impossible to reach from the UI or from configuration, and a browser that already holds a bad key recovers on its own. No Critical or Important findings remain.

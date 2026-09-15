@@ -1,6 +1,6 @@
 import { type FormEvent, useState } from 'react'
 
-import { clearOrganizerKey, getOrganizerKey, setOrganizerKey } from '../api'
+import { clearOrganizerKey, getOrganizerKey, isHeaderSafeKey, setOrganizerKey } from '../api'
 
 type Props = {
   onSaved: () => void
@@ -9,11 +9,17 @@ type Props = {
 export function OrganizerKeyPrompt({ onSaved }: Props) {
   const rejected = getOrganizerKey() !== null
   const [key, setKey] = useState('')
+  const [problem, setProblem] = useState('')
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const trimmed = key.trim()
     if (!trimmed) return
+    if (!isHeaderSafeKey(trimmed)) {
+      setProblem('The key can only contain Latin letters, digits, and punctuation, without spaces.')
+      return
+    }
+    setProblem('')
     setOrganizerKey(trimmed)
     setKey('')
     onSaved()
@@ -38,6 +44,7 @@ export function OrganizerKeyPrompt({ onSaved }: Props) {
           onChange={(event) => setKey(event.target.value)}
         />
       </label>
+      {problem && <p className="notice notice--error" role="alert">{problem}</p>}
       <div className="dashboard__links">
         <button className="button">Unlock</button>
         {rejected && (

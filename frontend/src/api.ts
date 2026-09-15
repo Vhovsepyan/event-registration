@@ -30,9 +30,20 @@ export class UnauthorizedError extends ApiError {
 
 const ORGANIZER_KEY_STORAGE = 'organizerKey'
 
+/** Header values must be printable ASCII; anything else cannot be sent by the browser at all. */
+export function isHeaderSafeKey(key: string): boolean {
+  return /^[!-~]+$/.test(key)
+}
+
 export function getOrganizerKey(): string | null {
   try {
-    return localStorage.getItem(ORGANIZER_KEY_STORAGE)
+    const stored = localStorage.getItem(ORGANIZER_KEY_STORAGE)
+    if (stored !== null && !isHeaderSafeKey(stored)) {
+      // A key that cannot travel in a header would break every request; drop it instead.
+      localStorage.removeItem(ORGANIZER_KEY_STORAGE)
+      return null
+    }
+    return stored
   } catch {
     return null
   }

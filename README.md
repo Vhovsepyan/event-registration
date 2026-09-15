@@ -137,7 +137,7 @@ The step-by-step guide for a Google Cloud `e2-micro`, the variables, and the ver
 - `/tickets/{ticket_code}` — ticket details and status
 - `/check-in` — manual staff check-in
 
-Authentication is deliberately outside the product scope. For a deployment reachable from the internet, set `ORGANIZER_KEY` in `backend/.env`: event creation, rescheduling, statistics, the live stream, and check-in then require it (`X-Organizer-Key` header; the dashboard stream passes it as `organizer_key`). The organizer and check-in screens ask for the key once and remember it in the browser. Participant routes stay open. Leave it unset for local development.
+Authentication is deliberately outside the product scope. For a deployment reachable from the internet, set `ORGANIZER_KEY` in `backend/.env`: event creation, rescheduling, statistics, the live stream, and check-in then require it (`X-Organizer-Key` header; the dashboard stream passes it as `organizer_key`). The organizer and check-in screens ask for the key once and remember it in the browser. The key must be printable ASCII without spaces (it travels in an HTTP header; a browser cannot send other characters), which is validated at API startup and in the prompt. Participant routes stay open. Leave it unset for local development.
 
 Health endpoints: `GET /health` is process liveness (no database); `GET /ready` executes `SELECT 1` and returns 503 while PostgreSQL is unreachable, for load balancers and container health checks.
 
