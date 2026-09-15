@@ -21,6 +21,15 @@ def register_participant(
     return RegistrationRead.model_validate(service.register(session, event_id, data))
 
 
+@router.get("/{registration_id}", response_model=RegistrationRead)
+def get_registration(
+    event_id: uuid.UUID,
+    registration_id: uuid.UUID,
+    session: Annotated[Session, Depends(get_db_session)],
+) -> RegistrationRead:
+    return RegistrationRead.model_validate(service.get(session, event_id, registration_id))
+
+
 @router.post("/{registration_id}/cancel", response_model=CancellationRead)
 def cancel_registration(
     event_id: uuid.UUID,

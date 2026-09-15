@@ -13,6 +13,11 @@ class Settings(BaseSettings):
     smtp_host: str = "localhost"
     smtp_port: int = Field(default=1025, gt=0, le=65535)
     smtp_from: str = "events@example.local"
+    # Optional, for pointing the worker at a real provider; Mailpit needs neither.
+    smtp_username: str | None = None
+    smtp_password: str | None = None
+    smtp_starttls: bool = False
+    frontend_base_url: str = "http://localhost:5173"
     notification_poll_interval_seconds: float = Field(default=2.0, gt=0)
     notification_claim_timeout_seconds: float = Field(default=60.0, gt=0)
     notification_batch_size: int = Field(default=20, gt=0, le=1000)

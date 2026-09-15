@@ -46,6 +46,19 @@ class RegistrationRepository:
         )
         return (session.scalar(statement) or 0) + 1
 
+    def waitlist_position(self, session: Session, registration: Registration) -> int:
+        """1-based place among active waitlisted rows of the event, in FIFO order."""
+        statement = (
+            select(func.count())
+            .select_from(Registration)
+            .where(
+                Registration.event_id == registration.event_id,
+                Registration.status == "WAITLISTED",
+                Registration.waitlist_order <= registration.waitlist_order,
+            )
+        )
+        return session.scalar(statement) or 1
+
     def first_waitlisted(self, session: Session, event_id: uuid.UUID) -> Registration | None:
         statement = (
             select(Registration)

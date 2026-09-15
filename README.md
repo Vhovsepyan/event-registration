@@ -4,16 +4,20 @@ A client-server event registration product with capacity-safe registration, FIFO
 
 The backend and frontend are separate applications. FastAPI owns the HTTP/SSE API and PostgreSQL state; React communicates with it over the network. Mailpit captures local SMTP messages for inspection.
 
+## Where the emails go
+
+All email is delivered by the notification worker through SMTP to **Mailpit**, a local mail sink started by Docker Compose. Nothing leaves your machine: whatever address you register with, open **http://localhost:8025** to read the confirmation, waiting-list, promotion, reminder, and reschedule messages. Two things must be true to see mail: the worker terminal is running (see "Start locally") and Mailpit is up. To send through a real provider instead, set `SMTP_HOST`, `SMTP_PORT`, `SMTP_FROM`, and optionally `SMTP_STARTTLS=true`, `SMTP_USERNAME`, `SMTP_PASSWORD` in `backend/.env`; `FRONTEND_BASE_URL` controls the self-service links inside the messages.
+
 ## Current state
 
-The implemented product supports event creation and rescheduling, capacity-safe participant registration, cancellation and re-registration, FIFO waitlisting and automatic promotion, fresh tickets per confirmed participation attempt, atomic one-time check-in, live organizer counts over SSE, and durable notification intent through a PostgreSQL transactional outbox. Cancelled registrations remain as history, and their tickets remain invalid.
+The implemented product supports event discovery for participants and organizers, event creation and rescheduling, capacity-safe participant registration, cancellation from the event page or the self-service link in every email, re-registration, a waiting-list email with the participant's place in line, FIFO waitlisting and automatic promotion, fresh tickets per confirmed participation attempt, atomic one-time check-in, live organizer counts over SSE, and durable notification intent through a PostgreSQL transactional outbox. Cancelled registrations remain as history, and their tickets remain invalid.
 
 PostgreSQL event-row locks serialize registration, cancellation, promotion, and re-registration seat decisions. Database constraints permit at most one active registration per normalized email and event. Notification generation is deduplicated in PostgreSQL; a separate worker claims and delivers pending messages through SMTP.
 
 ## Known limitations
 
 - Authentication and authorization are intentionally not implemented. Organizer, rescheduling, and staff check-in routes must not be exposed publicly as-is; participant cancellation also relies on possession of event and registration identifiers.
-- Participant state is held in the current browser flow. There is no authenticated participant account or recovery/list endpoint after a page refresh.
+- There is no participant account. Every email links to the registration's self-service page (`/events/{event_id}/registrations/{registration_id}`); possession of that link, like possession of a ticket code, is what lets someone view or cancel the registration.
 - SMTP delivery is at-least-once at the transport boundary. Each outbox row is claimed with an ownership token immediately before its own send, so a slow batch cannot be resent by a second worker and a stale owner cannot overwrite a newer claim; but if the worker crashes after SMTP accepts a message, or a single SMTP call outlives the claim lease, before the row is marked `SENT`, the row is reclaimed and the recipient can receive a duplicate.
 - Queued reminders, confirmations, and promotions are suppressed when a participant cancels, queued reminders are suppressed when the event is rescheduled or has already started, and a burst of reschedules delivers only the latest notice per participant; reminders are re-verified when the worker claims them. A cancellation or reschedule that commits after that verification and before SMTP accepts the message cannot recall it (see `docs/decisions/0020-reminder-suppression.md`).
 - Mailpit and the included configuration are for local development, not production deployment.
@@ -117,6 +121,7 @@ Open `http://localhost:5173`. Mailpit's inbox is at `http://localhost:8025`. The
 - `/` — participant home: upcoming events with seats left or waiting-list size
 - `/organizer` — organizer area: create an event and open any event's dashboard
 - `/events/{event_id}` — event details, participant registration, cancellation, and re-registration
+- `/events/{event_id}/registrations/{registration_id}` — self-service page linked from every email: status, ticket, cancel
 - `/events/{event_id}/organizer` — live organizer dashboard and rescheduling
 - `/tickets/{ticket_code}` — ticket details and status
 - `/check-in` — manual staff check-in
@@ -167,7 +172,7 @@ See [the multi-client verification](docs/demo/multi-client-verification.md) for 
 ## API summary
 
 - `GET /api/events[?include_past=true]` (upcoming events with confirmed/waitlisted counts and seats left); `POST /api/events`; `GET/PATCH /api/events/{event_id}`
-- `POST /api/events/{event_id}/registrations`
+- `POST /api/events/{event_id}/registrations`; `GET /api/events/{event_id}/registrations/{registration_id}`
 - `POST /api/events/{event_id}/registrations/{registration_id}/cancel`
 - `GET /api/tickets/{code}`; `POST /api/check-ins`
 - `GET /api/events/{event_id}/stats`

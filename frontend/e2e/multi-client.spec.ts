@@ -55,13 +55,20 @@ test('participant cancels, reregisters, and receives a fresh valid ticket', asyn
   const oldTicket = (await page.locator('.ticket-code').textContent())?.trim()
   expect(oldTicket).toBeTruthy()
 
+  // Cancel from the self-service page that every email links to, as a returning participant would.
+  await page.getByRole('link', { name: 'your registration page' }).click()
+  await expect(page).toHaveURL(new RegExp(`/events/${eventId}/registrations/[^/]+$`))
+  await expect(page.getByText(`Registered as ${email}`)).toBeVisible()
   page.once('dialog', (dialog) => dialog.accept())
   await page.getByRole('button', { name: 'Cancel participation' }).click()
   await expect(page.getByRole('heading', { name: 'Your participation is cancelled' })).toBeVisible()
   await expect(page.getByText('Your previous ticket is no longer active.')).toBeVisible()
   await expect(page.getByText(oldTicket!, { exact: true })).toHaveCount(0)
 
-  await page.getByRole('button', { name: 'Register again' }).click()
+  await page.getByRole('link', { name: 'Register again' }).click()
+  await expect(page).toHaveURL(`/events/${eventId}`)
+  await page.getByLabel('Email address').fill(email)
+  await page.getByRole('button', { name: 'Register' }).click()
   await expect(page.getByRole('heading', { name: 'Your place is secured' })).toBeVisible()
   const newTicket = (await page.locator('.ticket-code').textContent())?.trim()
   expect(newTicket).toBeTruthy()

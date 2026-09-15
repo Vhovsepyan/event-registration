@@ -1,6 +1,6 @@
 # Task 0029 — Registration self-service and waitlist email
 
-- Status: OPEN
+- Status: DONE (2026-09-15, task 0029 commit)
 - Created: 2026-09-15T10:06:36+04:00
 - Source: user product review on 2026-09-15 — "how can a participant cancel the registration?" and "participant doesn't receive email"
 
@@ -26,6 +26,14 @@
 3. All participant emails carry a working self-service link.
 4. Mailpit's role is stated at the top of the README; real SMTP credentials are optional and never required.
 5. Backend, frontend, and Playwright suites are green.
+
+## Resolution
+
+- `GET /api/events/{event_id}/registrations/{registration_id}` returns the current registration (404 for unknown or wrong-event ids); `/events/:eventId/registrations/:registrationId` (`RegistrationPage`) shows event, email, status, ticket, and the cancel action, sharing `RegistrationStatus` with the event page. The event page's result card links to it ("your registration page") and its form says how to reopen a registration.
+- New `WAITLIST_JOINED` notification (migration `20260915_0013`) with the FIFO position, deduplicated per registration and suppressed on cancellation; every participant template ends with the self-service link built from `FRONTEND_BASE_URL`.
+- `SmtpMailer` honours optional `SMTP_STARTTLS`, `SMTP_USERNAME`, `SMTP_PASSWORD`; Mailpit remains the default and README now explains where emails go before the run instructions.
+- Tests: waitlist email position/dedupe/suppression, self-service links in all five email types, registration lookup/404, STARTTLS/login only when configured (backend, 100 total); self-service cancel, waitlisted and unknown registration, and result-card link (frontend, 21 total); the Playwright cancellation scenario now cancels from the self-service page.
+- Verification note: the first browser run failed with a 500 on cancel because the development database had not yet received migration 0013; upgrading it fixed the run. Keep `alembic upgrade head` in the run instructions.
 
 ## Out of scope
 

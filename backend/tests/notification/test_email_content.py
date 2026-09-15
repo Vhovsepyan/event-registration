@@ -39,7 +39,11 @@ async def test_confirmation_and_promotion_payloads_include_event_time_and_ticket
 
     with Session(database_engine) as session:
         notifications = list(
-            session.scalars(select(Notification).order_by(Notification.created_at))
+            session.scalars(
+                select(Notification)
+                .where(Notification.type != NotificationType.WAITLIST_JOINED)
+                .order_by(Notification.created_at)
+            )
         )
 
     assert [notification.type for notification in notifications] == [

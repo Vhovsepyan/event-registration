@@ -337,6 +337,79 @@ describe('product flows', () => {
     expect(screen.getByRole('heading', { name: 'Create an event' })).toBeVisible()
   })
 
+  it('lets a returning participant cancel from the self-service page', async () => {
+    const cancelled = {
+      ...CONFIRMED_REGISTRATION,
+      status: 'CANCELLED' as const,
+      cancelled_at: '2030-01-02T00:00:00Z',
+      ticket: { ...CONFIRMED_REGISTRATION.ticket!, invalidated_at: '2030-01-02T00:00:00Z' },
+    }
+    const fetchMock = vi.fn((url: string) => {
+      if (url.endsWith('/cancel')) return Promise.resolve(response({ registration: cancelled, promoted_registration: null }))
+      if (url.endsWith('/registrations/registration-1')) return Promise.resolve(response(CONFIRMED_REGISTRATION))
+      return Promise.resolve(response(EVENT))
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const user = userEvent.setup()
+
+    renderAt('/events/event-1/registrations/registration-1')
+
+    expect(await screen.findByRole('heading', { name: EVENT.title })).toBeVisible()
+    expect(screen.getByText('Registered as guest@example.com')).toBeVisible()
+    expect(screen.getByText('ABCD-EFGH-IJKL')).toBeVisible()
+    await user.click(screen.getByRole('button', { name: 'Cancel participation' }))
+
+    expect(await screen.findByRole('heading', { name: 'Your participation is cancelled' })).toBeVisible()
+    expect(screen.getByRole('link', { name: 'Register again' })).toHaveAttribute('href', '/events/event-1')
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      expect.stringContaining('/api/events/event-1/registrations/registration-1/cancel'),
+      expect.objectContaining({ method: 'POST' }),
+    )
+  })
+
+  it('shows a waitlisted registration and reports an unknown one', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) =>
+        Promise.resolve(
+          url.endsWith('/registrations/registration-2')
+            ? response(WAITLISTED_REGISTRATION)
+            : url.endsWith('/registrations/missing')
+              ? new Response(JSON.stringify({ detail: "Registration 'missing' was not found" }), { status: 404 })
+              : response(EVENT),
+        ),
+      ),
+    )
+
+    renderAt('/events/event-1/registrations/registration-2')
+    expect(await screen.findByRole('heading', { name: 'You’re on the waiting list' })).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Cancel participation' })).toBeEnabled()
+    cleanup()
+
+    renderAt('/events/event-1/registrations/missing')
+    expect(await screen.findByRole('alert')).toHaveTextContent("Registration 'missing' was not found")
+  })
+
+  it('links a fresh registration to its self-service page', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValueOnce(response(EVENT)).mockResolvedValueOnce(response(CONFIRMED_REGISTRATION)),
+    )
+    const user = userEvent.setup()
+
+    renderAt('/events/event-1')
+    await screen.findByRole('heading', { name: EVENT.title })
+    expect(screen.getByText(/Already registered\?/)).toBeVisible()
+    await user.type(screen.getByLabelText('Email address'), 'guest@example.com')
+    await user.click(screen.getByRole('button', { name: 'Register' }))
+
+    expect(await screen.findByRole('link', { name: 'your registration page' })).toHaveAttribute(
+      'href',
+      '/events/event-1/registrations/registration-1',
+    )
+  })
+
   it.each([
     ['statistics', '/stats', EVENT.title, 'Event statistics'],
     ['event details', '/events/event-1', 'Checked in: 3', 'Event overview'],

@@ -6,6 +6,7 @@ import { CreateEventPage } from './pages/CreateEventPage'
 import { EventPage } from './pages/EventPage'
 import { EventsPage } from './pages/EventsPage'
 import { OrganizerPage } from './pages/OrganizerPage'
+import { RegistrationPage } from './pages/RegistrationPage'
 import { TicketPage } from './pages/TicketPage'
 
 function NotFoundPage() {
@@ -40,6 +41,7 @@ export default function App() {
           <Route path="/organizer" element={<CreateEventPage />} />
           <Route path="/events/:eventId" element={<EventPage />} />
           <Route path="/events/:eventId/organizer" element={<OrganizerPage />} />
+          <Route path="/events/:eventId/registrations/:registrationId" element={<RegistrationPage />} />
           <Route path="/tickets/:code" element={<TicketPage />} />
           <Route path="/check-in" element={<CheckInPage />} />
           <Route path="*" element={<NotFoundPage />} />

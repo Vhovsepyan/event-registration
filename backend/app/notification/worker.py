@@ -54,6 +54,9 @@ class SmtpMailer:
         self.host = settings.smtp_host
         self.port = settings.smtp_port
         self.sender = settings.smtp_from
+        self.username = settings.smtp_username
+        self.password = settings.smtp_password
+        self.starttls = settings.smtp_starttls
 
     def send(self, recipient: str, subject: str, body: str) -> None:
         try:
@@ -66,6 +69,10 @@ class SmtpMailer:
             raise PermanentDeliveryError(f"message construction failed: {exc}") from exc
         try:
             with smtplib.SMTP(self.host, self.port, timeout=10) as smtp:
+                if self.starttls:
+                    smtp.starttls()
+                if self.username:
+                    smtp.login(self.username, self.password or "")
                 smtp.send_message(message)
         except smtplib.SMTPRecipientsRefused as exc:
             codes = [code for code, _ in exc.recipients.values()]

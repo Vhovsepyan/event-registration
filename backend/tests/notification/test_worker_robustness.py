@@ -205,7 +205,7 @@ async def test_cancellation_before_delivery_suppresses_confirmation_and_promotio
     mailer = RecordingMailer()
     worker = worker_for(database_engine, mailer, ManualClock())
 
-    assert worker.process_once() == 1
+    assert worker.process_once() == 2
 
     by_recipient: dict[str, list[Notification]] = {}
     for row in rows(database_engine):
@@ -214,17 +214,19 @@ async def test_cancellation_before_delivery_suppresses_confirmation_and_promotio
         (NotificationType.REGISTRATION_CONFIRMED, NotificationStatus.SUPPRESSED)
     ]
     assert [(r.type, r.status) for r in by_recipient["second@example.com"]] == [
-        (NotificationType.WAITLIST_PROMOTED, NotificationStatus.SUPPRESSED)
+        (NotificationType.WAITLIST_JOINED, NotificationStatus.SUPPRESSED),
+        (NotificationType.WAITLIST_PROMOTED, NotificationStatus.SUPPRESSED),
     ]
     assert [(r.type, r.status) for r in by_recipient["third@example.com"]] == [
-        (NotificationType.WAITLIST_PROMOTED, NotificationStatus.SENT)
+        (NotificationType.WAITLIST_JOINED, NotificationStatus.SENT),
+        (NotificationType.WAITLIST_PROMOTED, NotificationStatus.SENT),
     ]
     assert all(
         r.suppression_reason == "registration cancelled"
         for r in rows(database_engine)
         if r.status == NotificationStatus.SUPPRESSED
     )
-    assert [message[0] for message in mailer.messages] == ["third@example.com"]
+    assert [message[0] for message in mailer.messages] == ["third@example.com"] * 2
 
 
 async def test_burst_of_reschedules_delivers_only_the_latest_notice(

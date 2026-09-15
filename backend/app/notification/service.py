@@ -5,12 +5,14 @@ from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
+from app.common.config import get_settings
 from app.event.models import Event
 from app.notification.models import Notification, NotificationStatus, NotificationType
 from app.notification.templates import (
     event_reminder_email,
     event_rescheduled_email,
     registration_confirmed_email,
+    waitlist_joined_email,
     waitlist_promoted_email,
 )
 from app.registration.models import Registration, RegistrationStatus
@@ -18,6 +20,13 @@ from app.ticket.models import Ticket
 
 
 class NotificationService:
+    def __init__(self, frontend_base_url: str | None = None) -> None:
+        self.frontend_base_url = (frontend_base_url or get_settings().frontend_base_url).rstrip("/")
+
+    def manage_url(self, event_id: uuid.UUID, registration_id: uuid.UUID) -> str:
+        """Self-service page every participant email links to."""
+        return f"{self.frontend_base_url}/events/{event_id}/registrations/{registration_id}"
+
     def enqueue(
         self,
         session: Session,
@@ -55,7 +64,9 @@ class NotificationService:
         registration: Registration,
         ticket: Ticket,
     ) -> None:
-        content = registration_confirmed_email(event, ticket)
+        content = registration_confirmed_email(
+            event, ticket, self.manage_url(event.id, registration.id)
+        )
         self.enqueue(
             session,
             notification_type=NotificationType.REGISTRATION_CONFIRMED,
@@ -70,6 +81,24 @@ class NotificationService:
             dedupe_key=f"registration-confirmed:{registration.id}",
         )
 
+    def enqueue_waitlist_joined(
+        self, session: Session, event: Event, registration: Registration, *, position: int
+    ) -> None:
+        content = waitlist_joined_email(event, position, self.manage_url(event.id, registration.id))
+        self.enqueue(
+            session,
+            notification_type=NotificationType.WAITLIST_JOINED,
+            event_id=event.id,
+            registration_id=registration.id,
+            recipient=registration.email,
+            payload={
+                "subject": content.subject,
+                "body": content.body,
+                "waitlist_position": position,
+            },
+            dedupe_key=f"waitlist-joined:{registration.id}",
+        )
+
     def enqueue_waitlist_promoted(
         self,
         session: Session,
@@ -77,7 +106,7 @@ class NotificationService:
         registration: Registration,
         ticket: Ticket,
     ) -> None:
-        content = waitlist_promoted_email(event, ticket)
+        content = waitlist_promoted_email(event, ticket, self.manage_url(event.id, registration.id))
         self.enqueue(
             session,
             notification_type=NotificationType.WAITLIST_PROMOTED,
@@ -99,7 +128,7 @@ class NotificationService:
         registration: Registration,
         ticket: Ticket,
     ) -> None:
-        content = event_reminder_email(event, ticket)
+        content = event_reminder_email(event, ticket, self.manage_url(event.id, registration.id))
         self.enqueue(
             session,
             notification_type=NotificationType.EVENT_REMINDER,
@@ -130,7 +159,9 @@ class NotificationService:
     ) -> None:
         old_value = old_starts_at.isoformat()
         new_value = event.starts_at.isoformat()
-        content = event_rescheduled_email(event, old_value, new_value)
+        content = event_rescheduled_email(
+            event, old_value, new_value, self.manage_url(event.id, registration.id)
+        )
         # Every actual change is recorded, but only the latest unsent notice is delivered: an
         # older PENDING notice would describe a schedule that is already out of date, and
         # bounding delivery to one email per worker cycle keeps an unauthenticated PATCH loop
@@ -223,6 +254,7 @@ class NotificationService:
             notification_types=(
                 NotificationType.EVENT_REMINDER,
                 NotificationType.REGISTRATION_CONFIRMED,
+                NotificationType.WAITLIST_JOINED,
                 NotificationType.WAITLIST_PROMOTED,
             ),
             reason="registration cancelled",

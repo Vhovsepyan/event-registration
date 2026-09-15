@@ -1,7 +1,8 @@
 import { type FormEvent, useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 
 import { api } from '../api'
+import { RegistrationStatus } from '../components/RegistrationStatus'
 import { errorMessage, formatDateTime } from '../format'
 import type { EventRecord, Registration } from '../types'
 
@@ -60,13 +61,14 @@ export function EventPage() {
         <h1 id="event-heading">{event.title}</h1>
         <p className="event-time">{formatDateTime(event.starts_at)}</p>
         {event.description && <p className="lede">{event.description}</p>}
-        {registration?.status === 'CANCELLED' && <div className="result-card result-card--warning" role="status">
-          <p className="eyebrow">Cancelled</p>
-          <h2>Your participation is cancelled</h2>
-          {cancelledFrom === 'CONFIRMED' && <p>Your previous ticket is no longer active.</p>}
-          {cancelledFrom === 'WAITLISTED' && <p>You are no longer on the waiting list.</p>}
-          {!cancelledFrom && <p>You are no longer participating in this event.</p>}
-        </div>}
+        {registration?.status === 'CANCELLED' && (
+          <RegistrationStatus
+            registration={registration}
+            cancelledFrom={cancelledFrom}
+            cancelling={cancelling}
+            onCancel={cancelParticipation}
+          />
+        )}
         {(!registration || registration.status === 'CANCELLED') && <form className="form-grid compact-form" onSubmit={submit}>
           <label>
             Email address
@@ -81,27 +83,20 @@ export function EventPage() {
           <button className="button" disabled={submitting}>
             {submitting ? 'Registering…' : registration ? 'Register again' : 'Register'}
           </button>
+          <p className="status-card__description">
+            Already registered? Enter the same email to open your registration, or use the link in
+            your email.
+          </p>
         </form>}
-        {registration?.status === 'CONFIRMED' && <div className="result-card result-card--success" role="status">
-          <p className="eyebrow">Confirmed</p>
-          <h2>Your place is secured</h2>
-          {registration.ticket && <>
-            <p>Your ticket code</p>
-            <strong className="ticket-code">{registration.ticket.code}</strong>
-            <Link className="text-link" to={`/tickets/${registration.ticket.code}`}>View ticket</Link>
-          </>}
-          <button className="button button--danger" disabled={cancelling} onClick={cancelParticipation}>
-            {cancelling ? 'Cancelling…' : 'Cancel participation'}
-          </button>
-        </div>}
-        {registration?.status === 'WAITLISTED' && <div className="result-card" role="status">
-          <p className="eyebrow">Waiting list</p>
-          <h2>You’re on the waiting list</h2>
-          <p>We’ll email you if a place becomes available.</p>
-          <button className="button button--danger" disabled={cancelling} onClick={cancelParticipation}>
-            {cancelling ? 'Cancelling…' : 'Cancel participation'}
-          </button>
-        </div>}
+        {registration && registration.status !== 'CANCELLED' && (
+          <RegistrationStatus
+            registration={registration}
+            cancelledFrom={cancelledFrom}
+            cancelling={cancelling}
+            onCancel={cancelParticipation}
+            manageLink
+          />
+        )}
       </>}
       {error && <p className="notice notice--error" role="alert">{error}</p>}
     </section>

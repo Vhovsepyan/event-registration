@@ -141,18 +141,19 @@ async def test_permanent_failures_do_not_starve_healthy_mail(
     second_cycle = worker.process_once()
     third_cycle = worker.process_once()
 
-    assert (first_cycle, second_cycle, third_cycle) == (0, 6, 0)
+    assert (first_cycle, second_cycle, third_cycle) == (0, 7, 0)
     healthy = [row for row in rows(database_engine) if str(row.event_id) == healthy_event_id]
     cancelled = [row for row in healthy if row.recipient == "good-second@example.com"]
     assert [row.status for row in cancelled] == [NotificationStatus.SUPPRESSED]
     delivered = [row for row in healthy if row.recipient != "good-second@example.com"]
     assert {row.type for row in delivered} == {
         NotificationType.REGISTRATION_CONFIRMED,
+        NotificationType.WAITLIST_JOINED,
         NotificationType.WAITLIST_PROMOTED,
         NotificationType.EVENT_RESCHEDULED,
         NotificationType.EVENT_REMINDER,
     }
-    assert len(delivered) == 6
+    assert len(delivered) == 7
     assert all(row.status == NotificationStatus.SENT and row.attempts == 1 for row in delivered)
     poisoned = [row for row in rows(database_engine) if str(row.event_id) == poison["id"]]
     assert len(poisoned) == 20
@@ -161,7 +162,7 @@ async def test_permanent_failures_do_not_starve_healthy_mail(
         assert row.attempts == 1
         assert row.failed_at is not None
         assert row.last_error == "SMTP rejected the message"
-    assert len(mailer.messages) == 6
+    assert len(mailer.messages) == 7
 
 
 async def test_transient_failures_are_deferred_and_retried_without_starving(

@@ -61,8 +61,23 @@ class RegistrationService:
                     self.notification_service.enqueue_registration_confirmed(
                         session, event, registration, registration.ticket
                     )
+                else:
+                    self.notification_service.enqueue_waitlist_joined(
+                        session,
+                        event,
+                        registration,
+                        position=self.repository.waitlist_position(session, registration),
+                    )
 
         session.refresh(registration)
+        return registration
+
+    def get(
+        self, session: Session, event_id: uuid.UUID, registration_id: uuid.UUID
+    ) -> Registration:
+        registration = self.repository.get(session, event_id, registration_id)
+        if registration is None:
+            raise ResourceNotFoundError("Registration", registration_id)
         return registration
 
     def cancel(

@@ -58,6 +58,8 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ email }),
     }),
+  getRegistration: (eventId: string, registrationId: string) =>
+    request<Registration>(`/api/events/${eventId}/registrations/${registrationId}`),
   cancelRegistration: (eventId: string, registrationId: string) =>
     request<CancellationResponse>(
       `/api/events/${eventId}/registrations/${registrationId}/cancel`,

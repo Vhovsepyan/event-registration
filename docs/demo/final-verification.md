@@ -98,3 +98,10 @@ Both default and test-profile Compose configurations validate successfully, and 
 - Frontend: Vitest 14 passed; Oxlint and production build passed; `engines.node >= 22.12` declared.
 - Documented test recipe: verified as written with only the test service running, in both orders (suite then migration checks, and migration checks then suite).
 - Browser: both Playwright scenarios passed against the current code; ports 8000/5173 released.
+
+## Tasks 0028–0029 product-review verification
+
+- Completed: 2026-09-15T10:24:06+04:00
+- Backend: Ruff passed; full PostgreSQL suite 100 passed (event list ordering/counts/filter; waitlist email, self-service links in all five email types, registration lookup, SMTP STARTTLS/login); empty test database migrated from base through `20260915_0013` with a clean drift check and `0013` downgrade/upgrade; development database upgraded to `0013`.
+- Frontend: Vitest 21 passed (event lists, empty state, organizer list, self-service cancel, waitlisted/unknown registration, result-card link); Oxlint and production build passed.
+- Browser: both Playwright scenarios passed, starting from `/organizer` and cancelling through the self-service page, run against the developer's live API and Vite servers via `PLAYWRIGHT_REUSE_SERVERS=1`; a real-browser screenshot of `/` showed the live upcoming-events list.
