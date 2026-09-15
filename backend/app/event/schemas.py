@@ -3,12 +3,16 @@ from datetime import UTC, datetime
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validator
 
+# Well inside PostgreSQL's 32-bit integer; larger values would raise at the database instead
+# of returning a validation error, and no venue in this product's scope is bigger.
+MAX_CAPACITY = 1_000_000
+
 
 class EventCreate(BaseModel):
     title: str = Field(max_length=200)
     description: str = Field(default="", max_length=10_000)
     starts_at: AwareDatetime
-    capacity: int = Field(gt=0)
+    capacity: int = Field(gt=0, le=MAX_CAPACITY)
 
     @field_validator("title")
     @classmethod

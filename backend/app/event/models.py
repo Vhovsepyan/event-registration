@@ -10,7 +10,9 @@ from app.db.base import Base
 class Event(Base):
     __tablename__ = "events"
     __table_args__ = (
-        CheckConstraint("length(trim(title)) > 0", name="ck_events_title_not_blank"),
+        CheckConstraint(
+            "length(btrim(title, E' \\t\\r\\n')) > 0", name="ck_events_title_not_blank"
+        ),
         CheckConstraint("capacity > 0", name="ck_events_capacity_positive"),
         CheckConstraint(
             "position(chr(10) in title) = 0 AND position(chr(13) in title) = 0",

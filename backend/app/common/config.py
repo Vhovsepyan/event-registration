@@ -25,6 +25,8 @@ class Settings(BaseSettings):
         "postgresql+psycopg://event_registration:event_registration@localhost:5432/"
         "event_registration"
     )
+    database_pool_size: int = Field(default=5, gt=0)
+    database_max_overflow: int = Field(default=10, ge=0)
 
 
 @lru_cache

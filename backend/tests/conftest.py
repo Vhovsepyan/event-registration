@@ -5,6 +5,7 @@ import httpx
 import pytest
 import pytest_asyncio
 from sqlalchemy import Engine, create_engine
+from sqlalchemy.engine import make_url
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.db.base import Base
@@ -21,11 +22,24 @@ TEST_DATABASE_URL = os.getenv(
 )
 
 
+def assert_safe_test_database(url: str, *, override: str | None = None) -> None:
+    """Refuse to drop tables anywhere that is not unmistakably a test database."""
+    engine_url = make_url(url)
+    if engine_url.get_backend_name() != "postgresql":
+        raise RuntimeError("Backend integration tests require PostgreSQL")
+    if override == "1":
+        return
+    if not (engine_url.database or "").endswith("_test"):
+        raise RuntimeError(
+            f"Refusing to reset {engine_url.database!r}: the test database name must end with "
+            "'_test' (set ALLOW_UNSAFE_TEST_DATABASE=1 to override deliberately)"
+        )
+
+
 @pytest.fixture
 def database_engine() -> Iterator[Engine]:
+    assert_safe_test_database(TEST_DATABASE_URL, override=os.getenv("ALLOW_UNSAFE_TEST_DATABASE"))
     engine = create_engine(TEST_DATABASE_URL)
-    if engine.dialect.name != "postgresql":
-        raise RuntimeError("Backend integration tests require PostgreSQL")
     Base.metadata.drop_all(engine)
     Base.metadata.create_all(engine)
     yield engine

@@ -19,7 +19,9 @@ PostgreSQL event-row locks serialize registration, cancellation, promotion, and 
 - Mailpit and the included configuration are for local development, not production deployment.
 - The API has no rate limiting or abuse controls.
 - Outbox rows that fail permanently or exhaust their retries stay `FAILED` until an operator runs the `retry-failed` command; there is no alerting for them beyond the database state.
-- After re-registration history exists, downgrading migration `20260914_0007` requires resolving duplicate historical event/email rows before the former lifetime-unique constraint can be restored; the upgrade path is non-destructive.
+- After re-registration history exists, downgrading migration `20260914_0007` requires resolving duplicate historical event/email rows before the former lifetime-unique constraint can be restored; the upgrade path is non-destructive. Likewise, downgrading `20260914_0005` refuses to run while promoted registrations keep their historical waitlist order and prints the deliberate normalising statement.
+- Event capacity is capped at 1,000,000 seats.
+- Every API request and every organizer SSE poll (once per `SSE_POLL_INTERVAL_SECONDS`, a few milliseconds each) borrows one pooled PostgreSQL connection. The pool is `DATABASE_POOL_SIZE` (5) plus `DATABASE_MAX_OVERFLOW` (10) connections per API process; raise them, or run more API processes, before serving hundreds of simultaneously open dashboards.
 
 ## What I would do next
 
@@ -124,7 +126,7 @@ $env:POSTGRES_TEST_PORT = "5434"
 docker compose --profile test up -d postgres-test
 ```
 
-Backend (tests use PostgreSQL at port 5434 by default):
+Backend (tests use PostgreSQL at port 5434 by default; the fixture drops and recreates every table, so it refuses any `TEST_DATABASE_URL` whose database name does not end in `_test`):
 
 ```powershell
 cd backend

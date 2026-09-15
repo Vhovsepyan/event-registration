@@ -1,11 +1,23 @@
 from collections.abc import Iterator
 
-from sqlalchemy import create_engine
+from sqlalchemy import Engine, create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
-from app.common.config import get_settings
+from app.common.config import Settings, get_settings
 
-engine = create_engine(get_settings().database_url, pool_pre_ping=True)
+
+def build_engine(settings: Settings) -> Engine:
+    # Every API request and every SSE poll borrows one pooled connection briefly; the pool
+    # therefore bounds how many organizer streams and requests can read at the same instant.
+    return create_engine(
+        settings.database_url,
+        pool_pre_ping=True,
+        pool_size=settings.database_pool_size,
+        max_overflow=settings.database_max_overflow,
+    )
+
+
+engine = build_engine(get_settings())
 SessionLocal = sessionmaker(bind=engine, expire_on_commit=False)
 
 
